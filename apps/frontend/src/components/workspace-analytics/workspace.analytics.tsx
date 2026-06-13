@@ -142,7 +142,7 @@ export const WorkspaceAnalytics = () => {
   }
 
   return (
-    <div className="flex flex-1 bg-newBgColorInner overflow-hidden">
+    <div className="flex flex-1 bg-newBgColorInner overflow-hidden max-lg:flex-col max-lg:overflow-auto">
       <WorkspaceAnalyticsSidebar
         workspaces={workspaces}
         workspaceId={workspaceId}
@@ -157,7 +157,7 @@ export const WorkspaceAnalytics = () => {
         assignableIntegrations={assignableIntegrations}
         onAssignChannel={assignChannel}
       />
-      <main className="flex-1 flex flex-col p-[20px] gap-[16px] overflow-auto">
+      <main className="min-w-0 flex-1 flex flex-col p-[20px] gap-[16px] overflow-auto max-lg:overflow-visible max-lg:p-[16px]">
         <div className="flex flex-col gap-[4px]">
           <h1 className="text-[24px] leading-[30px] font-[600]">
             {workspace?.name || t('workspace_analytics', 'Workspace analytics')}

@@ -34,7 +34,7 @@ export const WorkspaceAnalyticsSidebar = ({
   const t = useT();
 
   return (
-    <aside className="bg-newBgColorInner p-[20px] flex flex-col gap-[18px] transition-all w-[280px] border-e border-newTableBorder overflow-auto">
+    <aside className="bg-newBgColorInner p-[20px] flex flex-col gap-[18px] transition-all w-[280px] shrink-0 border-e border-newTableBorder overflow-auto max-lg:w-full max-lg:border-e-0 max-lg:border-b max-lg:overflow-visible max-lg:p-[16px]">
       <div className="flex flex-col gap-[12px]">
         <h2 className="text-[20px] font-[500]">
           {t('product_workspaces', 'Product workspaces')}
@@ -48,7 +48,7 @@ export const WorkspaceAnalyticsSidebar = ({
               className={clsx(
                 'text-start flex items-center gap-[12px] min-h-[42px] px-[12px] rounded-e-[8px] transition-all group/profile',
                 workspaceId === workspace.id
-                  ? 'bg-boxHover text-textItemFocused'
+                  ? 'bg-boxHover text-newTableText'
                   : 'text-newTableText/60 hover:text-newTableText hover:bg-boxHover'
               )}
             >
@@ -75,7 +75,9 @@ export const WorkspaceAnalyticsSidebar = ({
           placeholder="jocoHunt, PolaPop"
         />
         <Button onClick={onCreateWorkspace}>
-          {t('create_workspace', 'Create workspace')}
+          <span className="whitespace-nowrap">
+            {t('create_workspace', 'Create workspace')}
+          </span>
         </Button>
       </div>
 

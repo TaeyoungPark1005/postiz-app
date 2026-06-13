@@ -24,9 +24,9 @@ export const WorkspaceSummaryCards = ({
       return (
         <div
           key={card.label}
-          className="flex flex-col bg-newTableHeader border border-newTableBorder rounded-[12px] px-[16px] py-[14px] transition-all duration-200 hover:border-[#612bd3]/50"
+          className="min-w-0 flex flex-col bg-newTableHeader border border-newTableBorder rounded-[12px] px-[16px] py-[14px] transition-all duration-200 hover:border-[#612bd3]/50"
         >
-          <div className="flex items-center gap-[10px] text-[13px] font-medium text-newTableText/70">
+          <div className="min-w-0 flex items-center gap-[10px] text-[13px] font-medium text-newTableText/70">
             <span
               className={`w-[8px] h-[8px] rounded-full ${
                 color === 'purple' ? 'bg-[#612bd3]' : ''
@@ -34,7 +34,7 @@ export const WorkspaceSummaryCards = ({
                 color === 'blue' ? 'bg-[#1d9bf0]' : ''
               }`}
             />
-            {card.label}
+            <span className="min-w-0 truncate">{card.label}</span>
           </div>
           <div className="text-[32px] leading-[38px] font-semibold mt-[10px] tracking-tight">
             {formatValue(card.value)}
@@ -71,7 +71,7 @@ export const WorkspaceSeriesGrid = ({
         return (
           <div
             key={item.id}
-            className="flex flex-col bg-newTableHeader border border-newTableBorder rounded-[12px] overflow-hidden transition-all duration-200 hover:border-[#612bd3]/50"
+            className="min-w-0 flex flex-col bg-newTableHeader border border-newTableBorder rounded-[12px] overflow-hidden transition-all duration-200 hover:border-[#612bd3]/50"
           >
             <div className="flex items-center justify-between px-[16px] pt-[14px] pb-[8px]">
               <div className="flex items-center gap-[10px] min-w-0">
