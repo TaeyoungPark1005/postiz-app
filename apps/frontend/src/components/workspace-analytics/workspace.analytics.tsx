@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { LoadingComponent } from '@gitroom/frontend/components/layout/loading';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
 import { WorkspaceAnalyticsControls } from './workspace-analytics.controls';
 import {
   WorkspaceSeriesGrid,
@@ -14,8 +15,6 @@ import { WorkspaceAnalyticsSidebar } from './workspace-analytics.sidebar';
 import {
   parseAnalyticsSummary,
   parseIntegrationListResponse,
-  parseProductWorkspace,
-  parseProductWorkspaces,
   type GroupBy,
   type Metric,
 } from './workspace-analytics.types';
@@ -23,18 +22,20 @@ import {
 export const WorkspaceAnalytics = () => {
   const fetch = useFetch();
   const t = useT();
-  const [workspaceId, setWorkspaceId] = useState('');
   const [metric, setMetric] = useState<Metric>('VIEWS');
   const [date, setDate] = useState(7);
   const [groupBy, setGroupBy] = useState<GroupBy>('total');
   const [channelId, setChannelId] = useState('');
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
-
-  const loadWorkspaces = useCallback(async () => {
-    return parseProductWorkspaces(
-      await (await fetch('/workspace-analytics/workspaces')).json()
-    );
-  }, [fetch]);
+  const {
+    workspaces,
+    selectedWorkspaceId,
+    selectedWorkspace: workspace,
+    isLoading,
+    selectWorkspace,
+    createWorkspace: createProductWorkspace,
+    assignChannel: assignWorkspaceChannel,
+  } = useProductWorkspace();
 
   const loadIntegrations = useCallback(async () => {
     return parseIntegrationListResponse(
@@ -42,31 +43,12 @@ export const WorkspaceAnalytics = () => {
     );
   }, [fetch]);
 
-  const {
-    data: workspaces = [],
-    isLoading,
-    mutate,
-  } = useSWR('workspace-analytics-workspaces', loadWorkspaces, {
-    revalidateOnFocus: false,
-  });
-
   const { data: integrations = [] } = useSWR(
     'workspace-analytics-integrations',
     loadIntegrations,
     {
       revalidateOnFocus: false,
     }
-  );
-
-  useEffect(() => {
-    if (!workspaceId && workspaces[0]) {
-      setWorkspaceId(workspaces[0].id);
-    }
-  }, [workspaceId, workspaces]);
-
-  const workspace = useMemo(
-    () => workspaces.find((item) => item.id === workspaceId),
-    [workspaceId, workspaces]
   );
 
   const summaryKey = workspace
@@ -104,14 +86,10 @@ export const WorkspaceAnalytics = () => {
       if (!workspace) {
         return;
       }
-      await fetch(`/workspace-analytics/workspaces/${workspace.id}/channels`, {
-        method: 'POST',
-        body: JSON.stringify({ integrationId }),
-      });
-      await mutate();
+      await assignWorkspaceChannel(workspace.id, integrationId);
       await mutateSummary();
     },
-    [fetch, mutate, mutateSummary, workspace]
+    [assignWorkspaceChannel, mutateSummary, workspace]
   );
 
   const createWorkspace = useCallback(async () => {
@@ -120,18 +98,9 @@ export const WorkspaceAnalytics = () => {
       return;
     }
 
-    const created = parseProductWorkspace(
-      await (
-        await fetch('/workspace-analytics/workspaces', {
-          method: 'POST',
-          body: JSON.stringify({ name }),
-        })
-      ).json()
-    );
-    setWorkspaceId(created.id);
+    await createProductWorkspace(name);
     setNewWorkspaceName('');
-    await mutate();
-  }, [fetch, mutate, newWorkspaceName]);
+  }, [createProductWorkspace, newWorkspaceName]);
 
   if (isLoading) {
     return (
@@ -145,9 +114,11 @@ export const WorkspaceAnalytics = () => {
     <div className="flex flex-1 flex-col bg-newBgColorInner overflow-auto lg:flex-row lg:overflow-hidden">
       <WorkspaceAnalyticsSidebar
         workspaces={workspaces}
-        workspaceId={workspaceId}
+        workspaceId={selectedWorkspaceId}
         setWorkspaceId={(value) => {
-          setWorkspaceId(value);
+          selectWorkspace(
+            typeof value === 'function' ? value(selectedWorkspaceId) : value
+          );
           setChannelId('');
         }}
         selectedWorkspace={workspace}

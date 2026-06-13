@@ -44,6 +44,7 @@ import { useHasScroll } from '@gitroom/frontend/components/ui/is.scroll.hook';
 import { useShortlinkPreference } from '@gitroom/frontend/components/settings/shortlink-preference.component';
 import dayjs from 'dayjs';
 import { Button } from '@gitroom/react/form/button';
+import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
 
 function countCharacters(text: string, type: string): number {
   if (type !== 'x') {
@@ -57,6 +58,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
   const fetch = useFetch();
   const ref = useRef(null);
   const existingData = useExistingData();
+  const { selectedWorkspace } = useProductWorkspace();
   const [loading, setLoading] = useState(false);
   const toaster = useToaster();
   const modal = useModals();
@@ -369,6 +371,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       const data = {
         type,
         ...(repeater ? { inter: repeater } : {}),
+        ...(selectedWorkspace ? { workspaceId: selectedWorkspace.id } : {}),
         tags,
         shortLink,
         date: date.utc().format('YYYY-MM-DDTHH:mm:ss'),
@@ -439,7 +442,16 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
         }
       }
     },
-    [ref, repeater, tags, date, addEditSets, dummy, shortlinkPreferenceData]
+    [
+      ref,
+      repeater,
+      tags,
+      date,
+      addEditSets,
+      dummy,
+      shortlinkPreferenceData,
+      selectedWorkspace,
+    ]
   );
 
   return (

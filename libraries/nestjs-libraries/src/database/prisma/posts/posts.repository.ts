@@ -20,13 +20,33 @@ dayjs.extend(utc);
 @Injectable()
 export class PostsRepository {
   constructor(
-    private _post: PrismaRepository<'post'>,
+    private _post: PrismaRepository<
+      'post' | 'productWorkspace' | 'postWorkspaceAttribution'
+    >,
     private _popularPosts: PrismaRepository<'popularPosts'>,
     private _comments: PrismaRepository<'comments'>,
     private _tags: PrismaRepository<'tags'>,
     private _tagsPosts: PrismaRepository<'tagsPosts'>,
     private _errors: PrismaRepository<'errors'>
   ) {}
+
+  async getWorkspaceIntegrationIds(orgId: string, workspaceId: string) {
+    const workspace = await this._post.model.productWorkspace.findFirst({
+      where: {
+        id: workspaceId,
+        organizationId: orgId,
+      },
+      select: {
+        channels: {
+          select: {
+            integrationId: true,
+          },
+        },
+      },
+    });
+
+    return workspace?.channels.map((channel) => channel.integrationId) || [];
+  }
 
   searchForMissingThreeHoursPosts() {
     return this._post.model.post.findMany({
@@ -124,6 +144,20 @@ export class PostsRepository {
     // Use the provided start and end dates directly
     const startDate = dayjs.utc(query.startDate).toDate();
     const endDate = dayjs.utc(query.endDate).toDate();
+    const workspaceIntegrationIds = query.workspaceId
+      ? await this.getWorkspaceIntegrationIds(orgId, query.workspaceId)
+      : undefined;
+    const integrationWhere = {
+      deletedAt: null as Date | null,
+      ...(query.customer ? { customerId: query.customer } : {}),
+      ...(workspaceIntegrationIds
+        ? {
+            id: {
+              in: workspaceIntegrationIds,
+            },
+          }
+        : {}),
+    };
 
     const list = await this._post.model.post.findMany({
       where: {
@@ -151,18 +185,9 @@ export class PostsRepository {
             ],
           },
         ],
-        integration: {
-          deletedAt: null,
-        },
+        integration: integrationWhere,
         deletedAt: null,
         parentPostId: null,
-        ...(query.customer
-          ? {
-              integration: {
-                customerId: query.customer,
-              },
-            }
-          : {}),
       },
       select: {
         id: true,
@@ -216,6 +241,20 @@ export class PostsRepository {
     const page = query.page || 0;
     const limit = query.limit || 20;
     const skip = page * limit;
+    const workspaceIntegrationIds = query.workspaceId
+      ? await this.getWorkspaceIntegrationIds(orgId, query.workspaceId)
+      : undefined;
+    const integrationWhere = {
+      deletedAt: null as Date | null,
+      ...(query.customer ? { customerId: query.customer } : {}),
+      ...(workspaceIntegrationIds
+        ? {
+            id: {
+              in: workspaceIntegrationIds,
+            },
+          }
+        : {}),
+    };
 
     const where = {
       AND: [
@@ -235,13 +274,7 @@ export class PostsRepository {
       deletedAt: null as Date | null,
       parentPostId: null as string | null,
       intervalInDays: null as number | null,
-      ...(query.customer
-        ? {
-            integration: {
-              customerId: query.customer,
-            },
-          }
-        : {}),
+      integration: integrationWhere,
     };
 
     const [posts, total] = await Promise.all([
@@ -483,7 +516,8 @@ export class PostsRepository {
     date: string,
     body: PostBody,
     tags: { value: string; label: string }[],
-    inter?: number
+    inter?: number,
+    workspaceId?: string
   ) {
     const posts: Post[] = [];
     const uuid = uuidv4();
@@ -614,6 +648,30 @@ export class PostsRepository {
           parentPostId: null,
           deletedAt: new Date(),
         },
+      });
+    }
+
+    if (workspaceId && posts[0]) {
+      await this._post.model.postWorkspaceAttribution.deleteMany({
+        where: {
+          postId: posts[0].id,
+          workspaceId: {
+            not: workspaceId,
+          },
+        },
+      });
+      await this._post.model.postWorkspaceAttribution.upsert({
+        where: {
+          postId_workspaceId: {
+            postId: posts[0].id,
+            workspaceId,
+          },
+        },
+        create: {
+          postId: posts[0].id,
+          workspaceId,
+        },
+        update: {},
       });
     }
 

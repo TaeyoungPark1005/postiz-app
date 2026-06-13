@@ -41,6 +41,8 @@ import { StreakComponent } from '@gitroom/frontend/components/layout/streak.comp
 import { PreConditionComponent } from '@gitroom/frontend/components/layout/pre-condition.component';
 import { AttachToFeedbackIcon } from '@gitroom/frontend/components/new-layout/sentry.feedback.component';
 import { FirstBillingComponent } from '@gitroom/frontend/components/billing/first.billing.component';
+import { ProductWorkspaceProvider } from '@gitroom/frontend/components/workspaces/workspace.context';
+import { WorkspaceSelector } from '@gitroom/frontend/components/workspaces/workspace.selector';
 
 const jakartaSans = Plus_Jakarta_Sans({
   weight: ['600', '500', '700'],
@@ -75,73 +77,77 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
         runtimeUrl={backendUrl + '/copilot/chat'}
         showDevConsole={false}
       >
-        <MantineWrapper>
-          <ToolTip />
-          <Toaster />
-          <CheckPayment check={searchParams.get('check') || ''} mutate={mutate}>
-            <ShowMediaBoxModal />
-            <ShowLinkedinCompany />
-            <MediaSettingsLayout />
-            <ShowPostSelector />
-            <PreConditionComponent />
-            <NewSubscription />
-            <ContinueProvider />
-            <div
-              className={clsx(
-                'flex flex-col min-h-screen min-w-screen text-newTextColor p-[12px]',
-                jakartaSans.className
-              )}
-            >
-              <div>{user?.admin ? <Impersonate /> : <div />}</div>
-              {user.tier === 'FREE' && isGeneral && billingEnabled ? (
-                <FirstBillingComponent />
-              ) : (
-                <>
-                  <AnnouncementBanner />
-                  <div className="flex-1 flex gap-[8px]">
-                    <Support />
-                    <div className="flex flex-col bg-newBgColorInner w-[80px] rounded-[12px]">
-                      <div
-                        id="left-menu"
-                        className={clsx(
-                          'fixed h-full w-[64px] start-[17px] flex flex-1 top-0',
-                          user?.admin && 'pt-[60px] max-h-[1000px]:w-[500px]'
-                        )}
-                      >
-                        <div className="flex flex-col h-full gap-[32px] flex-1 py-[12px]">
-                          <Logo />
-                          <TopMenu />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 bg-newBgLineColor rounded-[12px] overflow-hidden flex flex-col gap-[1px] blurMe">
-                      <div className="flex bg-newBgColorInner h-[80px] px-[20px] items-center">
-                        <div className="text-[24px] font-[600] flex flex-1">
-                          <Title />
-                        </div>
-                        <div className="flex gap-[20px] text-textItemBlur">
-                          <StreakComponent />
-                          <div className="w-[1px] h-[20px] bg-blockSeparator" />
-                          <OrganizationSelector />
-                          <div className="hover:text-newTextColor">
-                            <ModeComponent />
+        <ProductWorkspaceProvider organizationId={user.orgId}>
+          <MantineWrapper>
+            <ToolTip />
+            <Toaster />
+            <CheckPayment check={searchParams.get('check') || ''} mutate={mutate}>
+              <ShowMediaBoxModal />
+              <ShowLinkedinCompany />
+              <MediaSettingsLayout />
+              <ShowPostSelector />
+              <PreConditionComponent />
+              <NewSubscription />
+              <ContinueProvider />
+              <div
+                className={clsx(
+                  'flex flex-col min-h-screen min-w-screen text-newTextColor p-[12px]',
+                  jakartaSans.className
+                )}
+              >
+                <div>{user?.admin ? <Impersonate /> : <div />}</div>
+                {user.tier === 'FREE' && isGeneral && billingEnabled ? (
+                  <FirstBillingComponent />
+                ) : (
+                  <>
+                    <AnnouncementBanner />
+                    <div className="flex-1 flex gap-[8px]">
+                      <Support />
+                      <div className="flex flex-col bg-newBgColorInner w-[80px] rounded-[12px]">
+                        <div
+                          id="left-menu"
+                          className={clsx(
+                            'fixed h-full w-[64px] start-[17px] flex flex-1 top-0',
+                            user?.admin && 'pt-[60px] max-h-[1000px]:w-[500px]'
+                          )}
+                        >
+                          <div className="flex flex-col h-full gap-[32px] flex-1 py-[12px]">
+                            <Logo />
+                            <TopMenu />
                           </div>
-                          <div className="w-[1px] h-[20px] bg-blockSeparator" />
-                          <LanguageComponent />
-                          <ChromeExtensionComponent />
-                          <div className="w-[1px] h-[20px] bg-blockSeparator" />
-                          <AttachToFeedbackIcon />
-                          <NotificationComponent />
                         </div>
                       </div>
-                      <div className="flex flex-1 gap-[1px]">{children}</div>
+                      <div className="flex-1 bg-newBgLineColor rounded-[12px] overflow-hidden flex flex-col gap-[1px] blurMe">
+                        <div className="flex bg-newBgColorInner h-[80px] px-[20px] items-center">
+                          <div className="text-[24px] font-[600] flex flex-1">
+                            <Title />
+                          </div>
+                          <div className="flex items-center gap-[10px] text-textItemBlur xl:gap-[16px]">
+                            <WorkspaceSelector />
+                            <div className="w-[1px] h-[20px] bg-blockSeparator" />
+                            <StreakComponent />
+                            <div className="w-[1px] h-[20px] bg-blockSeparator" />
+                            <OrganizationSelector />
+                            <div className="hover:text-newTextColor">
+                              <ModeComponent />
+                            </div>
+                            <div className="w-[1px] h-[20px] bg-blockSeparator" />
+                            <LanguageComponent />
+                            <ChromeExtensionComponent />
+                            <div className="w-[1px] h-[20px] bg-blockSeparator" />
+                            <AttachToFeedbackIcon />
+                            <NotificationComponent />
+                          </div>
+                        </div>
+                        <div className="flex flex-1 gap-[1px]">{children}</div>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </CheckPayment>
-        </MantineWrapper>
+                  </>
+                )}
+              </div>
+            </CheckPayment>
+          </MantineWrapper>
+        </ProductWorkspaceProvider>
       </CopilotKit>
     </ContextWrapper>
   );

@@ -133,7 +133,8 @@ function getDateRange(display: string, referenceDate?: string) {
 export const CalendarWeekProvider: FC<{
   children: ReactNode;
   integrations: Integrations[];
-}> = ({ children, integrations }) => {
+  workspaceId?: string;
+}> = ({ children, integrations, workspaceId }) => {
   const fetch = useFetch();
   const [internalData, setInternalData] = useState([] as any[]);
   const [trendings] = useState<string[]>([]);
@@ -167,21 +168,23 @@ export const CalendarWeekProvider: FC<{
       startDate: filters.startDate,
       endDate: filters.endDate,
       customer: filters?.customer?.toString() || '',
+      workspaceId: workspaceId || '',
     }).toString();
-  }, [filters]);
+  }, [filters, workspaceId]);
 
   // Calendar view data fetcher
   const loadData = useCallback(async () => {
     const modifiedParams = new URLSearchParams({
       display: filters.display,
       customer: filters?.customer?.toString() || '',
+      workspaceId: workspaceId || '',
       startDate: newDayjs(filters.startDate).startOf('day').utc().format(),
       endDate: newDayjs(filters.endDate).endOf('day').utc().format(),
     }).toString();
 
     const data = await (await fetch(`/posts?${modifiedParams}`)).json();
     return expandPosts(data);
-  }, [filters, params]);
+  }, [filters, params, workspaceId]);
 
   // List view data fetcher
   const listParams = useMemo(() => {
@@ -189,8 +192,9 @@ export const CalendarWeekProvider: FC<{
       page: listPage.toString(),
       limit: '100',
       customer: filters?.customer?.toString() || '',
+      workspaceId: workspaceId || '',
     }).toString();
-  }, [listPage, filters.customer]);
+  }, [listPage, filters.customer, workspaceId]);
 
   const loadListData = useCallback(async () => {
     const response = await fetch(`/posts/list?${listParams}`);

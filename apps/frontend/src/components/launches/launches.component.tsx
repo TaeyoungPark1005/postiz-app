@@ -26,6 +26,7 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useIntegrationList } from '@gitroom/frontend/components/launches/helpers/use.integration.list';
 import useCookie from 'react-use-cookie';
 import { Onboarding } from '@gitroom/frontend/components/onboarding/onboarding';
+import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
 
 export const SVGLine = () => {
   return (
@@ -362,6 +363,10 @@ export const LaunchesComponent = () => {
   const [collapseMenu, setCollapseMenu] = useCookie('collapseMenu', '0');
   const [mode] = useCookie('mode', 'dark');
   const { isLoading, data: integrations, mutate } = useIntegrationList();
+  const {
+    selectedWorkspace,
+    isLoading: isWorkspaceLoading,
+  } = useProductWorkspace();
 
   const totalNonDisabledChannels = useMemo(() => {
     return (
@@ -369,6 +374,22 @@ export const LaunchesComponent = () => {
         ?.length || 0
     );
   }, [integrations]);
+  const workspaceIntegrationIds = useMemo(
+    () =>
+      new Set(
+        selectedWorkspace?.channels.map((channel) => channel.integrationId) ||
+          []
+      ),
+    [selectedWorkspace]
+  );
+  const workspaceIntegrations = useMemo(() => {
+    if (!selectedWorkspace) {
+      return integrations;
+    }
+    return integrations.filter((integration: any) =>
+      workspaceIntegrationIds.has(integration.id)
+    );
+  }, [integrations, selectedWorkspace, workspaceIntegrationIds]);
   const changeItemGroup = useCallback(
     async (id: string, group: string) => {
       mutate(
@@ -397,11 +418,11 @@ export const LaunchesComponent = () => {
   );
   const sortedIntegrations = useMemo(() => {
     return orderBy(
-      integrations,
+      workspaceIntegrations,
       ['type', 'disabled', 'identifier'],
       ['desc', 'asc', 'asc']
     );
-  }, [integrations]);
+  }, [workspaceIntegrations]);
   const menuIntegrations = useMemo(() => {
     return orderBy(
       Object.values(
@@ -484,7 +505,7 @@ export const LaunchesComponent = () => {
       window.close();
     }
   }, []);
-  if (isLoading || reload) {
+  if (isLoading || isWorkspaceLoading || reload) {
     return (
       <div className="bg-newBgColorInner p-[20px] flex flex-1 flex-col gap-[15px] transition-all items-center justify-center">
         <LoadingComponent />
@@ -496,7 +517,10 @@ export const LaunchesComponent = () => {
   return (
     <DNDProvider>
       <Onboarding />
-      <CalendarWeekProvider integrations={sortedIntegrations}>
+      <CalendarWeekProvider
+        integrations={sortedIntegrations}
+        workspaceId={selectedWorkspace?.id || ''}
+      >
         <div
           className={clsx(
             'flex relative flex-col',
@@ -558,10 +582,20 @@ export const LaunchesComponent = () => {
                       className="mx-auto min-w-[100%]"
                     />
                     <div className="font-[600] text-[20px]">
-                      {t('no_channels', 'No channels yet')}
+                      {integrations.length > 0 && selectedWorkspace
+                        ? t(
+                            'no_workspace_channels',
+                            'No channels are assigned to this workspace yet.'
+                          )
+                        : t('no_channels', 'No channels yet')}
                     </div>
                     <div className="text-[14px]">
-                      {t('connect_your_accounts')}
+                      {integrations.length > 0 && selectedWorkspace
+                        ? t(
+                            'choose_workspace_channels_from_top_menu',
+                            'Add channels from the workspace menu in the top bar.'
+                          )
+                        : t('connect_your_accounts')}
                     </div>
                   </div>
                 </div>

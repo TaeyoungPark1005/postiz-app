@@ -97,6 +97,10 @@ export class CreatePostDto {
   @IsString()
   order?: string;
 
+  @IsOptional()
+  @IsString()
+  workspaceId?: string;
+
   @IsDefined()
   @IsBoolean()
   shortLink: boolean;

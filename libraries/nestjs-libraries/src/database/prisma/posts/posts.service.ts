@@ -733,7 +733,31 @@ export class PostsService {
 
   async createPost(orgId: string, body: CreatePostDto): Promise<any[]> {
     const postList = [];
+    const workspaceIntegrationIds = body.workspaceId
+      ? new Set(
+          await this._postRepository.getWorkspaceIntegrationIds(
+            orgId,
+            body.workspaceId
+          )
+        )
+      : undefined;
+
+    if (body.workspaceId && !workspaceIntegrationIds?.size) {
+      throw new BadRequestException(
+        'Workspace not found or has no assigned channels'
+      );
+    }
+
     for (const post of body.posts) {
+      if (
+        workspaceIntegrationIds &&
+        !workspaceIntegrationIds.has(post.integration.id)
+      ) {
+        throw new BadRequestException(
+          'Selected channel is not assigned to this workspace'
+        );
+      }
+
       const messages = (post.value || []).map((p) => p.content);
       const updateContent = !body.shortLink
         ? messages
@@ -750,7 +774,8 @@ export class PostsService {
         body.type === 'now' ? dayjs().format('YYYY-MM-DDTHH:mm:00') : body.date,
         post,
         body.tags,
-        body.inter
+        body.inter,
+        body.workspaceId
       );
 
       if (!posts?.length) {
