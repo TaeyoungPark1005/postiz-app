@@ -257,13 +257,11 @@ export class WorkspaceAnalyticsService {
     channelComparison: WorkspaceAnalyticsSeries[]
   ): WorkspaceAnalyticsCard[] {
     const total = snapshots.reduce((sum, snapshot) => sum + snapshot.value, 0);
-    const bestChannel = channelComparison[0];
 
     return [
       { label: 'Total metric', value: total },
       { label: 'Snapshot points', value: snapshots.length },
       { label: 'Channels', value: channelComparison.length },
-      { label: 'Best channel', value: bestChannel?.label || 'No data' },
     ];
   }
 }

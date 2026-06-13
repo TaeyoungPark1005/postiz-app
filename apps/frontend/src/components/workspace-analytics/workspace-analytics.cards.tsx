@@ -17,7 +17,7 @@ export const WorkspaceSummaryCards = ({
 }: {
   readonly cards: readonly AnalyticsCardSummary[];
 }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-[16px]">
+  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-[16px]">
     {cards.map((card, index) => {
       const color = colorForIndex(index);
 
