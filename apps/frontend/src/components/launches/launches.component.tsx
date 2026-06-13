@@ -329,8 +329,10 @@ export const MenuComponent: FC<
             }
           : {})}
         role="Handle"
+        dir="ltr"
+        title={channelLabel}
         className={clsx(
-          'group-[.sidebar]:hidden flex-1 whitespace-nowrap text-ellipsis overflow-hidden cursor-move',
+          'group-[.sidebar]:hidden flex-1 whitespace-nowrap text-ellipsis overflow-hidden cursor-move text-left',
           integration.disabled && 'opacity-50'
         )}
       >

@@ -89,7 +89,11 @@ export const WorkspaceAnalyticsSidebar = ({
                 width={28}
                 height={28}
               />
-              <span className="min-w-0 truncate">
+              <span
+                dir="ltr"
+                title={workspaceChannelLabel(channel)}
+                className="min-w-0 truncate text-left"
+              >
                 {workspaceChannelLabel(channel)}
               </span>
             </div>
@@ -116,7 +120,11 @@ export const WorkspaceAnalyticsSidebar = ({
                 width={26}
                 height={26}
               />
-              <span className="min-w-0 truncate">
+              <span
+                dir="ltr"
+                title={workspaceIntegrationLabel(integration)}
+                className="min-w-0 truncate text-left"
+              >
                 {workspaceIntegrationLabel(integration)}
               </span>
             </button>

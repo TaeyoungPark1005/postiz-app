@@ -197,7 +197,11 @@ export const WorkspaceSelector = () => {
                           width={20}
                           height={20}
                         />
-                        <span className="min-w-0 truncate">
+                        <span
+                          dir="ltr"
+                          title={workspaceChannelLabel(channel)}
+                          className="min-w-0 truncate text-left"
+                        >
                           {workspaceChannelLabel(channel)}
                         </span>
                       </div>
@@ -235,7 +239,11 @@ export const WorkspaceSelector = () => {
                             width={20}
                             height={20}
                           />
-                          <span className="min-w-0 truncate">
+                          <span
+                            dir="ltr"
+                            title={workspaceIntegrationLabel(integration)}
+                            className="min-w-0 truncate text-left"
+                          >
                             {workspaceIntegrationLabel(integration)}
                           </span>
                         </button>
