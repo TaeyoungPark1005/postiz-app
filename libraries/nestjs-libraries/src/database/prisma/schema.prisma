@@ -215,6 +215,7 @@ model Media {
   originalName       String?
   path               String
   organizationId     String
+  productWorkspaceId String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   deletedAt          DateTime?
@@ -224,12 +225,14 @@ model Media {
   alt                String?
   thumbnailTimestamp Int?
   organization       Organization        @relation(fields: [organizationId], references: [id])
+  productWorkspace   ProductWorkspace?   @relation(fields: [productWorkspaceId], references: [id])
   agencies           SocialMediaAgency[]
   userPicture        User[]
   oauthApps          OAuthApp[]
 
   @@index([name])
   @@index([organizationId])
+  @@index([productWorkspaceId])
   @@index([type])
 }
 
@@ -488,6 +491,7 @@ model ProductWorkspace {
   campaigns          Campaign[]
   postAttributions   PostWorkspaceAttribution[]
   analyticsSnapshots AnalyticsMetricSnapshot[]
+  media              Media[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])

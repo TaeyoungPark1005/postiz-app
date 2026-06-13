@@ -12,6 +12,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { VideoContextWrapper } from '@gitroom/frontend/components/videos/video.context.wrapper';
 import { useToaster } from '@gitroom/react/toaster/toaster';
+import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
 
 export const Modal: FC<{
   close: () => void;
@@ -26,6 +27,8 @@ export const Modal: FC<{
   const form = useForm();
   const [position, setPosition] = useState('vertical');
   const toaster = useToaster();
+  const { selectedWorkspace } = useProductWorkspace();
+  const selectedWorkspaceId = selectedWorkspace?.id || '';
 
   const loadCredits = useCallback(async () => {
     return (
@@ -55,6 +58,7 @@ export const Modal: FC<{
           type: type.identifier,
           output: position,
           customParams,
+          ...(selectedWorkspaceId ? { workspaceId: selectedWorkspaceId } : {}),
         }),
       });
 
@@ -65,7 +69,7 @@ export const Modal: FC<{
 
     setLocked(false);
     setLoading(false);
-  }, [type, value, position]);
+  }, [type, value, position, selectedWorkspaceId]);
 
   return (
     <VideoContextWrapper.Provider value={{ value: value }}>

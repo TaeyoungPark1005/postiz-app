@@ -12,8 +12,9 @@ import { Pagination } from '@gitroom/frontend/components/media/media.component';
 
 const ThirdPartyMediaLibraryBrowser: FC<{
   integration: any;
+  workspaceId?: string;
   onImported: () => void;
-}> = ({ integration, onImported }) => {
+}> = ({ integration, workspaceId, onImported }) => {
   const fetch = useFetch();
   const t = useT();
   const toaster = useToaster();
@@ -64,6 +65,7 @@ const ThirdPartyMediaLibraryBrowser: FC<{
         method: 'POST',
         body: JSON.stringify({
           items: selected.map((s) => ({ url: s.url, name: s.name })),
+          ...(workspaceId ? { workspaceId } : {}),
         }),
       });
       toaster.show(
@@ -80,7 +82,7 @@ const ThirdPartyMediaLibraryBrowser: FC<{
     } finally {
       setImporting(false);
     }
-  }, [selected, integration.id]);
+  }, [selected, integration.id, workspaceId]);
 
   return (
     <div className="flex flex-col gap-[16px] h-full">
@@ -181,8 +183,9 @@ const ThirdPartyMediaLibraryBrowser: FC<{
 
 const ThirdPartyMediaLibraryPicker: FC<{
   integrations: any[];
+  workspaceId?: string;
   onImported: () => void;
-}> = ({ integrations, onImported }) => {
+}> = ({ integrations, workspaceId, onImported }) => {
   const [selected, setSelected] = useState<any>(null);
   const t = useT();
 
@@ -197,6 +200,7 @@ const ThirdPartyMediaLibraryPicker: FC<{
         </div>
         <ThirdPartyMediaLibraryBrowser
           integration={selected}
+          workspaceId={workspaceId}
           onImported={onImported}
         />
       </div>
@@ -228,8 +232,9 @@ const ThirdPartyMediaLibraryPicker: FC<{
 };
 
 export const ThirdPartyMediaLibrary: FC<{
+  workspaceId?: string;
   onImported: () => void;
-}> = ({ onImported }) => {
+}> = ({ workspaceId, onImported }) => {
   const fetch = useFetch();
   const t = useT();
   const modals = useModals();
@@ -266,6 +271,7 @@ export const ThirdPartyMediaLibrary: FC<{
           children: () => (
             <ThirdPartyMediaLibraryPicker
               integrations={data}
+              workspaceId={workspaceId}
               onImported={onImported}
             />
           ),

@@ -18,6 +18,7 @@ export class WorkspaceAnalyticsRepository {
     private _workspace: PrismaRepository<
       | 'analyticsMetricSnapshot'
       | 'campaign'
+      | 'media'
       | 'postWorkspaceAttribution'
       | 'productWorkspace'
       | 'workspaceChannel'
@@ -161,6 +162,10 @@ export class WorkspaceAnalyticsRepository {
     });
     await this._workspace.model.postWorkspaceAttribution.deleteMany({
       where: { workspaceId },
+    });
+    await this._workspace.model.media.updateMany({
+      where: { productWorkspaceId: workspaceId },
+      data: { productWorkspaceId: null },
     });
     await this._workspace.model.campaign.deleteMany({
       where: { workspaceId },

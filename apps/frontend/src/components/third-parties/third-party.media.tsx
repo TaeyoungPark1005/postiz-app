@@ -19,12 +19,14 @@ import './providers/heygen.provider';
 import { thirdPartyList } from '@gitroom/frontend/components/third-parties/third-party.wrapper';
 import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
 import { useModals } from '@gitroom/frontend/components/layout/new-modal';
+import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
 
 const ThirdPartyContext = createContext({
   id: '',
   name: '',
   title: '',
   identifier: '',
+  workspaceId: '',
   description: '',
   close: () => {},
   onChange: (data: any) => {},
@@ -57,8 +59,9 @@ export const ThirdPartyPopup: FC<{
       path: string;
     }>;
   }[];
+  workspaceId?: string;
 }> = (props) => {
-  const { closeModal, thirdParties, allData, onChange } = props;
+  const { closeModal, thirdParties, allData, onChange, workspaceId } = props;
   const [thirdParty, setThirdParty] = useState<any>(null);
   const refNew = useRef(null);
 
@@ -134,7 +137,13 @@ export const ThirdPartyPopup: FC<{
             </div>
           </div>
           <ThirdPartyContext.Provider
-            value={{ ...thirdParty, data: allData, close, onChange }}
+            value={{
+              ...thirdParty,
+              data: allData,
+              close,
+              onChange,
+              workspaceId: workspaceId || '',
+            }}
           >
             <Component />
           </ThirdPartyContext.Provider>
@@ -159,6 +168,8 @@ export const ThirdPartyMedia: FC<{
   const t = useT();
   const fetch = useFetch();
   const modals = useModals();
+  const { selectedWorkspace } = useProductWorkspace();
+  const selectedWorkspaceId = selectedWorkspace?.id || '';
 
   const thirdParties = useCallback(async () => {
     return (await (await fetch('/third-party')).json()).filter(
@@ -195,7 +206,8 @@ export const ThirdPartyMedia: FC<{
                   thirdParties={data}
                   closeModal={close}
                   allData={allData}
-                  onChange={onChange}
+                  workspaceId={selectedWorkspaceId}
+                  onChange={(data) => onChange(data)}
                 />
               ),
             });

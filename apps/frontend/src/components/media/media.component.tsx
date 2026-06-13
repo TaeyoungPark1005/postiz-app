@@ -51,6 +51,7 @@ import {
 import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
 import { useShallow } from 'zustand/react/shallow';
 import { LoadingComponent } from '@gitroom/frontend/components/layout/loading';
+import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
 const Polonto = dynamic(
   () => import('@gitroom/frontend/components/launches/polonto')
 );
@@ -208,10 +209,18 @@ export const MediaBox: FC<{
   const fetch = useFetch();
   const modals = useModals();
   const toaster = useToaster();
+  const { selectedWorkspace } = useProductWorkspace();
+  const selectedWorkspaceId = selectedWorkspace?.id || '';
   const loadMedia = useCallback(async () => {
-    return (await fetch(`/media?page=${page + 1}`)).json();
-  }, [page]);
-  const { data, mutate, isLoading } = useSWR(`get-media-${page}`, loadMedia);
+    const workspaceQuery = selectedWorkspaceId
+      ? `&workspaceId=${encodeURIComponent(selectedWorkspaceId)}`
+      : '';
+    return (await fetch(`/media?page=${page + 1}${workspaceQuery}`)).json();
+  }, [page, selectedWorkspaceId]);
+  const { data, mutate, isLoading } = useSWR(
+    `get-media-${selectedWorkspaceId}-${page}`,
+    loadMedia
+  );
   const [selected, setSelected] = useState([]);
   const t = useT();
   const uploaderRef = useRef<any>(null);
@@ -225,6 +234,7 @@ export const MediaBox: FC<{
         : type == 'video'
         ? 'video/mp4'
         : 'image/*,video/mp4',
+    workspaceId: selectedWorkspaceId,
     onUploadSuccess: async (arr) => {
       await mutate();
       if (standalone) {
@@ -237,6 +247,10 @@ export const MediaBox: FC<{
     onStart: () => setLoading(true),
     onEnd: () => setLoading(false),
   });
+
+  useEffect(() => {
+    setSelected([]);
+  }, [selectedWorkspaceId]);
 
   const addRemoveSelected = useCallback(
     (media: any) => () => {
@@ -372,12 +386,15 @@ export const MediaBox: FC<{
       ) {
         return;
       }
-      await fetch(`/media/${media.id}`, {
+      const workspaceQuery = selectedWorkspaceId
+        ? `?workspaceId=${encodeURIComponent(selectedWorkspaceId)}`
+        : '';
+      await fetch(`/media/${media.id}${workspaceQuery}`, {
         method: 'DELETE',
       });
       mutate();
     },
-    [mutate]
+    [mutate, selectedWorkspaceId]
   );
 
   const btn = useMemo(() => {
@@ -431,7 +448,10 @@ export const MediaBox: FC<{
           {!isLoading && !!data?.results?.length && (
             <div className="flex gap-[8px]">
               {btn}
-              <ThirdPartyMediaLibrary onImported={() => mutate()} />
+              <ThirdPartyMediaLibrary
+                workspaceId={selectedWorkspaceId}
+                onImported={() => mutate()}
+              />
             </div>
           )}
         </div>
@@ -489,7 +509,10 @@ export const MediaBox: FC<{
                 </div>
                 <div className="forceChange flex gap-[8px]">
                   {btn}
-                  <ThirdPartyMediaLibrary onImported={() => mutate()} />
+                  <ThirdPartyMediaLibrary
+                    workspaceId={selectedWorkspaceId}
+                    onImported={() => mutate()}
+                  />
                 </div>
               </>
             )}

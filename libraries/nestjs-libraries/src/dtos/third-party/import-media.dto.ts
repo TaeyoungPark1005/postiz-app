@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsDefined,
+  IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
@@ -27,4 +28,8 @@ export class ImportMediaDto {
   @ArrayMinSize(1)
   @IsDefined()
   items: ImportMediaItemDto[];
+
+  @IsOptional()
+  @IsString()
+  workspaceId?: string;
 }

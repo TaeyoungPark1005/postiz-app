@@ -10,7 +10,8 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { ThirdPartyManager } from '@gitroom/nestjs-libraries/3rdparties/thirdparty.manager';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
-import { Organization } from '@prisma/client';
+import { Organization, User } from '@prisma/client';
+import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.request';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/media.service';
@@ -63,6 +64,7 @@ export class ThirdPartyController {
   @Post('/:id/submit')
   async generate(
     @GetOrgFromRequest() organization: Organization,
+    @GetUserFromRequest() user: User,
     @Param('id') id: string,
     @Body() data: any
   ) {
@@ -89,7 +91,19 @@ export class ThirdPartyController {
     );
 
     const file = await this.storage.uploadSimple(loadedData);
-    return this._mediaService.saveFile(organization.id, file.split('/').pop(), file);
+    const fileName = file.split('/').pop();
+    if (!fileName) {
+      throw new HttpException('Upload location is missing', 400);
+    }
+
+    return this._mediaService.saveFileForUser(
+      organization,
+      user,
+      fileName,
+      file,
+      undefined,
+      data.workspaceId
+    );
   }
 
   @Post('/function/:id/:functionName')
@@ -125,6 +139,7 @@ export class ThirdPartyController {
   @Post('/:id/import')
   async importMedia(
     @GetOrgFromRequest() organization: Organization,
+    @GetUserFromRequest() user: User,
     @Param('id') id: string,
     @Body() body: ImportMediaDto
   ) {
@@ -157,10 +172,18 @@ export class ThirdPartyController {
     const results = [];
     for (const item of downloadUrls) {
       const file = await this.storage.uploadSimple(item.url);
-      const saved = await this._mediaService.saveFile(
-        organization.id,
-        item.name || file.split('/').pop(),
-        file
+      const fileName = item.name || file.split('/').pop();
+      if (!fileName) {
+        throw new HttpException('Upload location is missing', 400);
+      }
+
+      const saved = await this._mediaService.saveFileForUser(
+        organization,
+        user,
+        fileName,
+        file,
+        undefined,
+        body.workspaceId
       );
       results.push(saved);
     }

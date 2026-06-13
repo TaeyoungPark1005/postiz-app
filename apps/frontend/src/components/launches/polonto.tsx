@@ -23,6 +23,7 @@ import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { loadVars } from '@gitroom/react/helpers/variable.context';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
+import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
 const store = createStore({
   get key() {
     return loadVars().plontoKey;
@@ -40,6 +41,8 @@ const ActionControls = ({ store }: any) => {
   const close = useContext(CloseContext);
   const [load, setLoad] = useState(false);
   const fetch = useFetch();
+  const { selectedWorkspace } = useProductWorkspace();
+  const selectedWorkspaceId = selectedWorkspace?.id || '';
   return (
     <div>
       <Button
@@ -51,6 +54,9 @@ const ActionControls = ({ store }: any) => {
           const blob = await store.toBlob();
           const formData = new FormData();
           formData.append('file', blob, 'media.png');
+          if (selectedWorkspaceId) {
+            formData.append('workspaceId', selectedWorkspaceId);
+          }
           const data = await (
             await fetch('/media/upload-simple', {
               method: 'POST',

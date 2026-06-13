@@ -13,7 +13,12 @@ export const useThirdPartySubmit = () => {
     }
 
     const response = await fetch(`/third-party/${thirdParty.id}/submit`, {
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...(data || {}),
+        ...(thirdParty.workspaceId
+          ? { workspaceId: thirdParty.workspaceId }
+          : {}),
+      }),
       method: 'POST',
     });
 

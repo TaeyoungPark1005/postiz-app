@@ -1,5 +1,5 @@
 import {
-  IsIn, Validate, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface
+  IsIn, IsOptional, IsString, Validate, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface
 } from 'class-validator';
 import { VideoAbstract } from '@gitroom/nestjs-libraries/videos/video.interface';
 
@@ -31,4 +31,8 @@ export class VideoDto {
   output: 'vertical' | 'horizontal';
 
   customParams: any;
+
+  @IsOptional()
+  @IsString()
+  workspaceId?: string;
 }

@@ -6,7 +6,13 @@ import { SaveMediaInformationDto } from '@gitroom/nestjs-libraries/dtos/media/sa
 export class MediaRepository {
   constructor(private _media: PrismaRepository<'media'>) {}
 
-  saveFile(org: string, fileName: string, filePath: string, originalName?: string) {
+  saveFile(
+    org: string,
+    fileName: string,
+    filePath: string,
+    originalName?: string,
+    productWorkspaceId?: string
+  ) {
     return this._media.model.media.create({
       data: {
         organization: {
@@ -14,6 +20,15 @@ export class MediaRepository {
             id: org,
           },
         },
+        ...(productWorkspaceId
+          ? {
+              productWorkspace: {
+                connect: {
+                  id: productWorkspaceId,
+                },
+              },
+            }
+          : {}),
         name: fileName,
         path: filePath,
         originalName: originalName || null,
@@ -37,11 +52,12 @@ export class MediaRepository {
     });
   }
 
-  deleteMedia(org: string, id: string) {
+  deleteMedia(org: string, id: string, productWorkspaceId?: string) {
     return this._media.model.media.update({
       where: {
         id,
         organizationId: org,
+        ...(productWorkspaceId ? { productWorkspaceId } : {}),
       },
       data: {
         deletedAt: new Date(),
@@ -72,21 +88,18 @@ export class MediaRepository {
     });
   }
 
-  async getMedia(org: string, page: number) {
+  async getMedia(org: string, page: number, productWorkspaceId?: string) {
     const pageNum = (page || 1) - 1;
     const query = {
       where: {
-        organization: {
-          id: org,
-        },
+        organizationId: org,
+        deletedAt: null,
+        ...(productWorkspaceId ? { productWorkspaceId } : {}),
       },
     };
     const pages = Math.ceil((await this._media.model.media.count(query)) / 18);
     const results = await this._media.model.media.findMany({
-      where: {
-        organizationId: org,
-        deletedAt: null,
-      },
+      where: query.where,
       orderBy: {
         createdAt: 'desc',
       },

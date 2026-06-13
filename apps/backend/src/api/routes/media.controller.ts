@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
   Param,
   Post,
   Query,
@@ -14,7 +15,8 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
-import { Organization } from '@prisma/client';
+import { Organization, User } from '@prisma/client';
+import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.request';
 import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/media.service';
 import { ApiTags } from '@nestjs/swagger';
 import handleR2Upload from '@gitroom/nestjs-libraries/upload/r2.uploader';
@@ -36,17 +38,23 @@ export class MediaController {
   ) {}
 
   @Delete('/:id')
-  deleteMedia(@GetOrgFromRequest() org: Organization, @Param('id') id: string) {
-    return this._mediaService.deleteMedia(org.id, id);
+  deleteMedia(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Param('id') id: string,
+    @Query('workspaceId') workspaceId?: string
+  ) {
+    return this._mediaService.deleteMedia(org, user, id, workspaceId);
   }
 
   @Post('/generate-video')
   generateVideo(
     @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
     @Body() body: VideoDto
   ) {
     console.log('hello');
-    return this._mediaService.generateVideo(org, body);
+    return this._mediaService.generateVideo(org, body, user, body.workspaceId);
   }
 
   @Post('/generate-image')
@@ -71,8 +79,10 @@ export class MediaController {
   @Post('/generate-image-with-prompt')
   async generateImageFromText(
     @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
     @Req() req: Request,
-    @Body('prompt') prompt: string
+    @Body('prompt') prompt: string,
+    @Body('workspaceId') workspaceId?: string
   ) {
     const image = await this.generateImage(org, req, prompt, true);
     if (!image) {
@@ -80,8 +90,19 @@ export class MediaController {
     }
 
     const file = await this.storage.uploadSimple(image.output);
+    const fileName = file.split('/').pop();
+    if (!fileName) {
+      throw new HttpException('Upload location is missing', 400);
+    }
 
-    return this._mediaService.saveFile(org.id, file.split('/').pop(), file);
+    return this._mediaService.saveFileForUser(
+      org,
+      user,
+      fileName,
+      file,
+      undefined,
+      workspaceId
+    );
   }
 
   @Post('/upload-server')
@@ -89,33 +110,41 @@ export class MediaController {
   @UsePipes(new CustomFileValidationPipe())
   async uploadServer(
     @GetOrgFromRequest() org: Organization,
-    @UploadedFile() file: Express.Multer.File
+    @GetUserFromRequest() user: User,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('workspaceId') workspaceId?: string
   ) {
     const originalName = file?.originalname || '';
     const uploadedFile = await this.storage.uploadFile(file);
-    return this._mediaService.saveFile(
-      org.id,
+    return this._mediaService.saveFileForUser(
+      org,
+      user,
       uploadedFile.originalname,
       uploadedFile.path,
-      originalName
+      originalName,
+      workspaceId
     );
   }
 
   @Post('/save-media')
   async saveMedia(
     @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
     @Req() req: Request,
     @Body('name') name: string,
-    @Body('originalName') originalName: string
+    @Body('originalName') originalName: string,
+    @Body('workspaceId') workspaceId?: string
   ) {
     if (!name) {
       return false;
     }
-    return this._mediaService.saveFile(
-      org.id,
+    return this._mediaService.saveFileForUser(
+      org,
+      user,
       name,
       process.env.CLOUDFLARE_BUCKET_URL + '/' + name,
-      originalName || undefined
+      originalName || undefined,
+      workspaceId
     );
   }
 
@@ -131,8 +160,10 @@ export class MediaController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadSimple(
     @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
     @UploadedFile('file') file: Express.Multer.File,
-    @Body('preventSave') preventSave: string = 'false'
+    @Body('preventSave') preventSave: string = 'false',
+    @Body('workspaceId') workspaceId?: string
   ) {
     const originalName = file.originalname;
     const getFile = await this.storage.uploadFile(file);
@@ -142,17 +173,20 @@ export class MediaController {
       return { path };
     }
 
-    return this._mediaService.saveFile(
-      org.id,
+    return this._mediaService.saveFileForUser(
+      org,
+      user,
       getFile.originalname,
       getFile.path,
-      originalName
+      originalName,
+      workspaceId
     );
   }
 
   @Post('/:endpoint')
   async uploadFile(
     @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
     @Req() req: Request,
     @Res() res: Response,
     @Param('endpoint') endpoint: string
@@ -162,16 +196,24 @@ export class MediaController {
       return upload;
     }
 
-    // @ts-ignore
-    const name = upload.Location.split('/').pop();
+    const location =
+      typeof upload === 'object' && upload !== null && 'Location' in upload
+        ? String(upload.Location || '')
+        : '';
+    const name = location.split('/').pop();
+    if (!name) {
+      throw new HttpException('Upload location is missing', 400);
+    }
     const originalName = req.body?.file?.name;
+    const workspaceId = req.body?.file?.meta?.workspaceId;
 
-    const saveFile = await this._mediaService.saveFile(
-      org.id,
+    const saveFile = await this._mediaService.saveFileForUser(
+      org,
+      user,
       name,
-      // @ts-ignore
-      upload.Location,
-      originalName || undefined
+      location,
+      originalName || undefined,
+      workspaceId
     );
 
     res.status(200).json({ ...upload, saved: saveFile });
@@ -180,9 +222,11 @@ export class MediaController {
   @Get('/')
   getMedia(
     @GetOrgFromRequest() org: Organization,
-    @Query('page') page: number
+    @GetUserFromRequest() user: User,
+    @Query('page') page: number,
+    @Query('workspaceId') workspaceId?: string
   ) {
-    return this._mediaService.getMedia(org.id, page);
+    return this._mediaService.getMedia(org, user, page, workspaceId);
   }
 
   @Get('/video-options')

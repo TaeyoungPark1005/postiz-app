@@ -5,6 +5,7 @@ import Loading from '@gitroom/frontend/components/layout/loading';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
+import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
 const list = [
   'Realistic',
   'Cartoon',
@@ -30,6 +31,8 @@ export const AiImage: FC<{
   const [loading, setLoading] = useState(false);
   const setLocked = useLaunchStore((p) => p.setLocked);
   const fetch = useFetch();
+  const { selectedWorkspace } = useProductWorkspace();
+  const selectedWorkspaceId = selectedWorkspace?.id || '';
   const generateImage = useCallback(
     (type: string) => async () => {
       setLoading(true);
@@ -48,6 +51,7 @@ ${type}
 <!-- /style -->
   
 `,
+            ...(selectedWorkspaceId ? { workspaceId: selectedWorkspaceId } : {}),
           }),
         })
       ).json();
@@ -55,7 +59,7 @@ ${type}
       setLocked(false);
       onChange(image);
     },
-    [value, onChange]
+    [value, onChange, selectedWorkspaceId]
   );
   return (
     <div className="relative group">

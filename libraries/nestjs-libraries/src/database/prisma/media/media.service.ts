@@ -2,11 +2,12 @@ import { HttpException, Injectable } from '@nestjs/common';
 import { MediaRepository } from '@gitroom/nestjs-libraries/database/prisma/media/media.repository';
 import { OpenaiService } from '@gitroom/nestjs-libraries/openai/openai.service';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
-import { Organization } from '@prisma/client';
+import { Organization, User } from '@prisma/client';
 import { SaveMediaInformationDto } from '@gitroom/nestjs-libraries/dtos/media/save.media.information.dto';
 import { VideoManager } from '@gitroom/nestjs-libraries/videos/video.manager';
 import { VideoDto } from '@gitroom/nestjs-libraries/dtos/videos/video.dto';
 import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
+import { WorkspaceAnalyticsRepository } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.repository';
 import {
   AuthorizationActions,
   Sections,
@@ -19,13 +20,45 @@ export class MediaService {
 
   constructor(
     private _mediaRepository: MediaRepository,
+    private _workspaceRepository: WorkspaceAnalyticsRepository,
     private _openAi: OpenaiService,
     private _subscriptionService: SubscriptionService,
     private _videoManager: VideoManager
   ) {}
 
-  async deleteMedia(org: string, id: string) {
-    return this._mediaRepository.deleteMedia(org, id);
+  private async accessibleWorkspaceId(
+    org: Organization,
+    user: User,
+    workspaceId?: string
+  ) {
+    if (!workspaceId) {
+      return undefined;
+    }
+
+    const workspace = await this._workspaceRepository.getWorkspaceForUser(
+      org.id,
+      user.id,
+      workspaceId,
+      user.isSuperAdmin
+    );
+    if (!workspace) {
+      throw new HttpException('Workspace not found', 404);
+    }
+
+    return workspace.id;
+  }
+
+  async deleteMedia(
+    org: Organization,
+    user: User,
+    id: string,
+    workspaceId?: string
+  ) {
+    return this._mediaRepository.deleteMedia(
+      org.id,
+      id,
+      await this.accessibleWorkspaceId(org, user, workspaceId)
+    );
   }
 
   getMediaById(id: string) {
@@ -52,12 +85,45 @@ export class MediaService {
     return generating;
   }
 
-  saveFile(org: string, fileName: string, filePath: string, originalName?: string) {
-    return this._mediaRepository.saveFile(org, fileName, filePath, originalName);
+  saveFile(
+    org: string,
+    fileName: string,
+    filePath: string,
+    originalName?: string,
+    productWorkspaceId?: string
+  ) {
+    return this._mediaRepository.saveFile(
+      org,
+      fileName,
+      filePath,
+      originalName,
+      productWorkspaceId
+    );
   }
 
-  getMedia(org: string, page: number) {
-    return this._mediaRepository.getMedia(org, page);
+  async saveFileForUser(
+    org: Organization,
+    user: User,
+    fileName: string,
+    filePath: string,
+    originalName?: string,
+    workspaceId?: string
+  ) {
+    return this.saveFile(
+      org.id,
+      fileName,
+      filePath,
+      originalName,
+      await this.accessibleWorkspaceId(org, user, workspaceId)
+    );
+  }
+
+  async getMedia(org: Organization, user: User, page: number, workspaceId?: string) {
+    return this._mediaRepository.getMedia(
+      org.id,
+      page,
+      await this.accessibleWorkspaceId(org, user, workspaceId)
+    );
   }
 
   saveMediaInformation(org: string, data: SaveMediaInformationDto) {
@@ -81,7 +147,12 @@ export class MediaService {
     return true;
   }
 
-  async generateVideo(org: Organization, body: VideoDto) {
+  async generateVideo(
+    org: Organization,
+    body: VideoDto,
+    user?: User,
+    workspaceId?: string
+  ) {
     const totalCredits = await this._subscriptionService.checkCredits(
       org,
       'ai_videos'
@@ -117,7 +188,14 @@ export class MediaService {
         );
 
         const file = await this.storage.uploadSimple(loadedData);
-        return this.saveFile(org.id, file.split('/').pop(), file);
+        const fileName = file.split('/').pop();
+        if (!fileName) {
+          throw new HttpException('Upload location is missing', 400);
+        }
+
+        return user
+          ? this.saveFileForUser(org, user, fileName, file, undefined, workspaceId)
+          : this.saveFile(org.id, fileName, file);
       }
     );
   }
