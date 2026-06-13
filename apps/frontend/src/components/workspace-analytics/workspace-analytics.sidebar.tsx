@@ -34,7 +34,7 @@ export const WorkspaceAnalyticsSidebar = ({
   const t = useT();
 
   return (
-    <aside className="bg-newBgColorInner p-[20px] flex flex-col gap-[18px] transition-all w-[280px] shrink-0 border-e border-newTableBorder overflow-auto max-lg:w-full max-lg:border-e-0 max-lg:border-b max-lg:overflow-visible max-lg:p-[16px]">
+    <aside className="bg-newBgColorInner p-[16px] flex flex-col gap-[18px] transition-all w-full shrink-0 border-b border-newTableBorder overflow-visible lg:w-[280px] lg:border-b-0 lg:border-e lg:p-[20px] lg:overflow-auto">
       <div className="flex flex-col gap-[12px]">
         <h2 className="text-[20px] font-[500]">
           {t('product_workspaces', 'Product workspaces')}
