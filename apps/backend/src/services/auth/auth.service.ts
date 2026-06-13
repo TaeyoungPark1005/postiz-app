@@ -11,6 +11,7 @@ import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/n
 import { ForgotReturnPasswordDto } from '@gitroom/nestjs-libraries/dtos/auth/forgot-return.password.dto';
 import { EmailService } from '@gitroom/nestjs-libraries/services/email.service';
 import { NewsletterService } from '@gitroom/nestjs-libraries/newsletter/newsletter.service';
+import { internalAccessPolicy } from '@gitroom/nestjs-libraries/services/access-policy/internal-access-policy';
 
 @Injectable()
 export class AuthService {
@@ -43,10 +44,20 @@ export class AuthService {
       if (process.env.DISALLOW_PLUS && body.email.includes('+')) {
         throw new Error('Email with plus sign is not allowed');
       }
+      internalAccessPolicy.assertEmailAllowed(body.email);
       const user = await this._userService.getUserByEmail(body.email);
       if (body instanceof CreateOrgUserDto) {
         if (user) {
           throw new Error('Email already exists');
+        }
+
+        const invited = !!addToOrg && typeof addToOrg !== 'boolean';
+        if (
+          internalAccessPolicy.inviteOnly() &&
+          !invited &&
+          (await this._organizationService.getCount()) > 0
+        ) {
+          throw new Error('Registration is invite only');
         }
 
         if (!(await this.canRegister(provider))) {
@@ -94,7 +105,8 @@ export class AuthService {
       provider,
       body as CreateOrgUserDto,
       ip,
-      userAgent
+      userAgent,
+      !!addToOrg && typeof addToOrg !== 'boolean'
     );
 
     const addedOrg =
@@ -119,6 +131,9 @@ export class AuthService {
       if (dayjs(getOrg.timeLimit).isBefore(dayjs())) {
         return false;
       }
+      if (!internalAccessPolicy.isEmailAllowed(getOrg.email)) {
+        return false;
+      }
 
       return getOrg as {
         email: string;
@@ -135,7 +150,8 @@ export class AuthService {
     provider: Provider,
     body: CreateOrgUserDto,
     ip: string,
-    userAgent: string
+    userAgent: string,
+    invited: boolean
   ) {
     const providerInstance = this._providerManager.getProvider(provider);
     const providerUser = await providerInstance.getUser(body.providerToken);
@@ -143,6 +159,7 @@ export class AuthService {
     if (!providerUser) {
       throw new Error('Invalid provider token');
     }
+    internalAccessPolicy.assertEmailAllowed(providerUser.email);
 
     const user = await this._userService.getUserByProvider(
       providerUser.id,
@@ -154,6 +171,14 @@ export class AuthService {
 
     if (!(await this.canRegister(provider))) {
       throw new Error('Registration is disabled');
+    }
+
+    if (
+      internalAccessPolicy.inviteOnly() &&
+      !invited &&
+      (await this._organizationService.getCount()) > 0
+    ) {
+      throw new Error('Registration is invite only');
     }
 
     const create = await this._organizationService.createOrgAndUser(
@@ -309,6 +334,7 @@ export class AuthService {
   }
 
   private async jwt(user: User) {
+    internalAccessPolicy.assertEmailAllowed(user.email);
     return AuthChecker.signJWT(user);
   }
 }

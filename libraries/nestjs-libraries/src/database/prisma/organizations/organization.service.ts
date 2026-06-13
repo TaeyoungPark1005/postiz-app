@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { Organization, ShortLinkPreference } from '@prisma/client';
 import { AutopostService } from '@gitroom/nestjs-libraries/database/prisma/autopost/autopost.service';
+import { internalAccessPolicy } from '@gitroom/nestjs-libraries/services/access-policy/internal-access-policy';
 
 @Injectable()
 export class OrganizationService {
@@ -78,6 +79,7 @@ export class OrganizationService {
   }
 
   async inviteTeamMember(orgId: string, body: AddTeamMemberDto) {
+    internalAccessPolicy.assertEmailAllowed(body.email);
     const timeLimit = dayjs().add(1, 'hour').format('YYYY-MM-DD HH:mm:ss');
     const id = makeId(5);
     const url =
