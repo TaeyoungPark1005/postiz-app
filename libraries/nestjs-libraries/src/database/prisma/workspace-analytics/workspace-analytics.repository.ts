@@ -15,7 +15,14 @@ interface SnapshotInput {
 @Injectable()
 export class WorkspaceAnalyticsRepository {
   constructor(
-    private _workspace: PrismaRepository<'productWorkspace'>,
+    private _workspace: PrismaRepository<
+      | 'analyticsMetricSnapshot'
+      | 'campaign'
+      | 'postWorkspaceAttribution'
+      | 'productWorkspace'
+      | 'workspaceChannel'
+      | 'workspaceMember'
+    >,
     private _workspaceChannel: PrismaRepository<'workspaceChannel'>,
     private _snapshot: PrismaRepository<'analyticsMetricSnapshot'>,
     private _integration: PrismaRepository<'integration'>
@@ -132,6 +139,41 @@ export class WorkspaceAnalyticsRepository {
       include: {
         integration: true,
       },
+    });
+  }
+
+  async deleteWorkspace(orgId: string, workspaceId: string) {
+    const workspace = await this._workspace.model.productWorkspace.findFirst({
+      where: {
+        id: workspaceId,
+        organizationId: orgId,
+      },
+      select: {
+        id: true,
+      },
+    });
+    if (!workspace) {
+      return null;
+    }
+
+    await this._workspace.model.analyticsMetricSnapshot.deleteMany({
+      where: { workspaceId },
+    });
+    await this._workspace.model.postWorkspaceAttribution.deleteMany({
+      where: { workspaceId },
+    });
+    await this._workspace.model.campaign.deleteMany({
+      where: { workspaceId },
+    });
+    await this._workspace.model.workspaceChannel.deleteMany({
+      where: { workspaceId },
+    });
+    await this._workspace.model.workspaceMember.deleteMany({
+      where: { workspaceId },
+    });
+
+    return this._workspace.model.productWorkspace.delete({
+      where: { id: workspaceId },
     });
   }
 

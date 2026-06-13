@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { AnalyticsCanonicalMetric } from '@prisma/client';
 import type { Organization, User } from '@prisma/client';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { internalAccessPolicy } from '@gitroom/nestjs-libraries/services/access-policy/internal-access-policy';
@@ -10,52 +9,7 @@ import type {
   WorkspaceAnalyticsQuery,
   WorkspaceAnalyticsSeries,
 } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.types';
-
-const metricAliases: Record<string, AnalyticsCanonicalMetric> = {
-  view: AnalyticsCanonicalMetric.VIEWS,
-  views: AnalyticsCanonicalMetric.VIEWS,
-  view_count: AnalyticsCanonicalMetric.VIEWS,
-  viewcount: AnalyticsCanonicalMetric.VIEWS,
-  reach: AnalyticsCanonicalMetric.REACH,
-  impression: AnalyticsCanonicalMetric.IMPRESSIONS,
-  impressions: AnalyticsCanonicalMetric.IMPRESSIONS,
-  like: AnalyticsCanonicalMetric.LIKES,
-  likes: AnalyticsCanonicalMetric.LIKES,
-  comments: AnalyticsCanonicalMetric.COMMENTS,
-  comment: AnalyticsCanonicalMetric.COMMENTS,
-  shares: AnalyticsCanonicalMetric.SHARES,
-  share: AnalyticsCanonicalMetric.SHARES,
-  share_count: AnalyticsCanonicalMetric.SHARES,
-  saves: AnalyticsCanonicalMetric.SAVES,
-  save: AnalyticsCanonicalMetric.SAVES,
-  reposts: AnalyticsCanonicalMetric.REPOSTS,
-  repost: AnalyticsCanonicalMetric.REPOSTS,
-  quotes: AnalyticsCanonicalMetric.QUOTES,
-  quote: AnalyticsCanonicalMetric.QUOTES,
-  followers: AnalyticsCanonicalMetric.FOLLOWERS,
-  follower: AnalyticsCanonicalMetric.FOLLOWERS,
-  following: AnalyticsCanonicalMetric.FOLLOWING,
-  video_count: AnalyticsCanonicalMetric.VIDEO_COUNT,
-  videocount: AnalyticsCanonicalMetric.VIDEO_COUNT,
-  engagements: AnalyticsCanonicalMetric.ENGAGEMENTS,
-  engagement: AnalyticsCanonicalMetric.ENGAGEMENTS,
-  engagement_rate: AnalyticsCanonicalMetric.ENGAGEMENT_RATE,
-  engagementrate: AnalyticsCanonicalMetric.ENGAGEMENT_RATE,
-};
-
-const toSlug = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || 'workspace';
-
-const normalizeMetric = (label: string) => {
-  const normalized = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
-  return metricAliases[normalized] || AnalyticsCanonicalMetric.RAW;
-};
-
-const dateKey = (date: Date) => date.toISOString().slice(0, 10);
+import { dateKey, normalizeMetric, toSlug, workspaceChannelLabel } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.helpers';
 
 @Injectable()
 export class WorkspaceAnalyticsService {
@@ -130,6 +84,28 @@ export class WorkspaceAnalyticsService {
       integration.providerIdentifier,
       integration.name
     );
+  }
+
+  async deleteWorkspace(org: Organization, user: User, workspaceId: string) {
+    const owner = await this._workspaceRepository.getWorkspaceOwner(
+      org.id,
+      user.id,
+      workspaceId,
+      user.isSuperAdmin
+    );
+    if (!owner) {
+      throw new Error('You do not have permission to manage this workspace');
+    }
+
+    const deleted = await this._workspaceRepository.deleteWorkspace(
+      org.id,
+      workspaceId
+    );
+    if (!deleted) {
+      throw new Error('Workspace not found');
+    }
+
+    return { deleted: true, id: deleted.id };
   }
 
   async summary(
@@ -240,7 +216,10 @@ export class WorkspaceAnalyticsService {
         groupBy === 'total'
           ? 'Total'
           : groupBy === 'channel'
-            ? snapshot.channel.displayName
+            ? workspaceChannelLabel(
+                snapshot.channel.providerIdentifier,
+                snapshot.channel.displayName
+              )
             : groupBy === 'campaign'
               ? snapshot.campaign?.name || 'No campaign'
               : snapshot.post?.title ||

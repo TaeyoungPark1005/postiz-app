@@ -27,6 +27,7 @@ import { useIntegrationList } from '@gitroom/frontend/components/launches/helper
 import useCookie from 'react-use-cookie';
 import { Onboarding } from '@gitroom/frontend/components/onboarding/onboarding';
 import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
+import { workspaceIntegrationLabel } from '@gitroom/frontend/components/workspaces/workspace-channel-label';
 
 export const SVGLine = () => {
   return (
@@ -236,6 +237,7 @@ export const MenuComponent: FC<
   } = props;
   const user = useUser();
   const t = useT();
+  const channelLabel = workspaceIntegrationLabel(integration);
   const [collected, drag, dragPreview] = useDrag(() => ({
     type: 'menu',
     item: {
@@ -257,7 +259,7 @@ export const MenuComponent: FC<
       {...(collapsed
         ? {
             'data-tooltip-id': 'tooltip',
-            'data-tooltip-content': integration.name,
+            'data-tooltip-content': channelLabel,
           }
         : {})}
       className={clsx(
@@ -332,7 +334,7 @@ export const MenuComponent: FC<
           integration.disabled && 'opacity-50'
         )}
       >
-        {integration.name}
+        {channelLabel}
       </div>
       <Menu
         canChangeProfilePicture={integration.changeProfilePicture}

@@ -1,7 +1,6 @@
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
-import clsx from 'clsx';
 import SafeImage from '@gitroom/react/helpers/safe.image';
 import { Button } from '@gitroom/react/form/button';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
@@ -9,6 +8,11 @@ import type {
   IntegrationListItem,
   ProductWorkspace,
 } from './workspace-analytics.types';
+import {
+  workspaceChannelLabel,
+  workspaceIntegrationLabel,
+} from '@gitroom/frontend/components/workspaces/workspace-channel-label';
+import { WorkspaceSelectRow } from '@gitroom/frontend/components/workspaces/workspace-select-row';
 
 export const WorkspaceAnalyticsSidebar = ({
   workspaces,
@@ -41,25 +45,12 @@ export const WorkspaceAnalyticsSidebar = ({
         </h2>
         <div className="flex flex-col gap-[6px]">
           {workspaces.map((workspace) => (
-            <button
+            <WorkspaceSelectRow
               key={workspace.id}
-              type="button"
-              onClick={() => setWorkspaceId(workspace.id)}
-              className={clsx(
-                'text-start flex items-center gap-[12px] min-h-[42px] px-[12px] rounded-e-[8px] transition-all group/profile',
-                workspaceId === workspace.id
-                  ? 'bg-boxHover text-newTableText'
-                  : 'text-newTableText/60 hover:text-newTableText hover:bg-boxHover'
-              )}
-            >
-              <span className="w-[8px] h-[8px] rounded-full bg-[#612bd3] shrink-0" />
-              <span className="min-w-0 flex-1 truncate text-[14px] font-[500]">
-                {workspace.name}
-              </span>
-              <span className="text-[12px] text-newTableText/40">
-                {workspace.channels.length}
-              </span>
-            </button>
+              workspace={workspace}
+              selected={workspaceId === workspace.id}
+              onSelect={() => setWorkspaceId(workspace.id)}
+            />
           ))}
         </div>
       </div>
@@ -98,7 +89,9 @@ export const WorkspaceAnalyticsSidebar = ({
                 width={28}
                 height={28}
               />
-              <span className="min-w-0 truncate">{channel.displayName}</span>
+              <span className="min-w-0 truncate">
+                {workspaceChannelLabel(channel)}
+              </span>
             </div>
           ))}
         </div>
@@ -123,7 +116,9 @@ export const WorkspaceAnalyticsSidebar = ({
                 width={26}
                 height={26}
               />
-              <span className="min-w-0 truncate">{integration.name}</span>
+              <span className="min-w-0 truncate">
+                {workspaceIntegrationLabel(integration)}
+              </span>
             </button>
           ))}
         </div>

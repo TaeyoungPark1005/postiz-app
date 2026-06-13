@@ -15,6 +15,7 @@ import type {
   Metric,
   ProductWorkspace,
 } from './workspace-analytics.types';
+import { workspaceChannelLabel } from '@gitroom/frontend/components/workspaces/workspace-channel-label';
 
 export const WorkspaceAnalyticsControls = ({
   metric,
@@ -102,7 +103,7 @@ export const WorkspaceAnalyticsControls = ({
         <option value="">{t('all_channels', 'All channels')}</option>
         {workspace?.channels.map((channel) => (
           <option key={channel.id} value={channel.id}>
-            {channel.displayName}
+            {workspaceChannelLabel(channel)}
           </option>
         ))}
       </Select>

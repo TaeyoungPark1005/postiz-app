@@ -28,6 +28,7 @@ type ProductWorkspaceContextValue = {
   readonly isLoading: boolean;
   readonly selectWorkspace: (workspaceId: string) => void;
   readonly createWorkspace: (name: string) => Promise<ProductWorkspace | null>;
+  readonly deleteWorkspace: (workspaceId: string) => Promise<void>;
   readonly assignChannel: (
     workspaceId: string,
     integrationId: string
@@ -124,6 +125,28 @@ export const ProductWorkspaceProvider: FC<{
     [fetch, mutateWorkspaces]
   );
 
+  const deleteWorkspace = useCallback(
+    async (workspaceId: string) => {
+      await fetch(`/workspace-analytics/workspaces/${workspaceId}`, {
+        method: 'DELETE',
+      });
+      const refreshedWorkspaces = (await mutateWorkspaces()) || [];
+      const nextWorkspace = refreshedWorkspaces.find(
+        (workspace) => workspace.id !== workspaceId
+      );
+
+      if (selectedWorkspaceId === workspaceId) {
+        if (nextWorkspace) {
+          selectWorkspace(nextWorkspace.id);
+        } else {
+          setSelectedWorkspaceId('');
+          localStorage.removeItem(workspaceStorageKey(organizationId));
+        }
+      }
+    },
+    [fetch, mutateWorkspaces, organizationId, selectedWorkspaceId, selectWorkspace]
+  );
+
   const selectedWorkspace = useMemo(
     () =>
       workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ||
@@ -139,12 +162,14 @@ export const ProductWorkspaceProvider: FC<{
       isLoading,
       selectWorkspace,
       createWorkspace,
+      deleteWorkspace,
       assignChannel,
       mutateWorkspaces,
     }),
     [
       assignChannel,
       createWorkspace,
+      deleteWorkspace,
       isLoading,
       mutateWorkspaces,
       selectWorkspace,

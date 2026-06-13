@@ -1,7 +1,6 @@
 'use client';
 
 import { type FormEvent, useCallback, useMemo, useState } from 'react';
-import clsx from 'clsx';
 import Link from 'next/link';
 import useSWR from 'swr';
 import SafeImage from '@gitroom/react/helpers/safe.image';
@@ -12,6 +11,11 @@ import {
   type IntegrationListItem,
 } from '@gitroom/frontend/components/workspace-analytics/workspace-analytics.types';
 import { useProductWorkspace } from './workspace.context';
+import {
+  workspaceChannelLabel,
+  workspaceIntegrationLabel,
+} from './workspace-channel-label';
+import { WorkspaceSelectRow } from './workspace-select-row';
 
 export const WorkspaceSelector = () => {
   const fetch = useFetch();
@@ -128,25 +132,12 @@ export const WorkspaceSelector = () => {
               </div>
               <div className="flex flex-col gap-[4px]">
                 {workspaces.map((workspace) => (
-                  <button
+                  <WorkspaceSelectRow
                     key={workspace.id}
-                    type="button"
-                    onClick={() => selectWorkspace(workspace.id)}
-                    className={clsx(
-                      'flex h-[42px] items-center gap-[10px] rounded-[8px] px-[10px] text-start transition-colors',
-                      selectedWorkspaceId === workspace.id
-                        ? 'bg-boxHover text-newTableText'
-                        : 'text-newTableText/60 hover:bg-boxHover hover:text-newTableText'
-                    )}
-                  >
-                    <span className="h-[8px] w-[8px] shrink-0 rounded-full bg-[#612bd3]" />
-                    <span className="min-w-0 flex-1 truncate text-[14px] font-[600]">
-                      {workspace.name}
-                    </span>
-                    <span className="text-[12px] text-newTableText/45">
-                      {workspace.channels.length}
-                    </span>
-                  </button>
+                    workspace={workspace}
+                    selected={selectedWorkspaceId === workspace.id}
+                    onSelect={() => selectWorkspace(workspace.id)}
+                  />
                 ))}
               </div>
             </div>
@@ -207,7 +198,7 @@ export const WorkspaceSelector = () => {
                           height={20}
                         />
                         <span className="min-w-0 truncate">
-                          {channel.displayName}
+                          {workspaceChannelLabel(channel)}
                         </span>
                       </div>
                     ))}
@@ -245,7 +236,7 @@ export const WorkspaceSelector = () => {
                             height={20}
                           />
                           <span className="min-w-0 truncate">
-                            {integration.name}
+                            {workspaceIntegrationLabel(integration)}
                           </span>
                         </button>
                       ))}

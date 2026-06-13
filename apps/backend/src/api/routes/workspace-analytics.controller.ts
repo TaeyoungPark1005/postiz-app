@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AnalyticsCanonicalMetric, Organization, User } from '@prisma/client';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
@@ -60,6 +60,19 @@ export class WorkspaceAnalyticsController {
       user,
       workspaceId,
       body
+    );
+  }
+
+  @Delete('/workspaces/:workspaceId')
+  deleteWorkspace(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Param('workspaceId') workspaceId: string
+  ) {
+    return this._workspaceAnalyticsService.deleteWorkspace(
+      org,
+      user,
+      workspaceId
     );
   }
 
