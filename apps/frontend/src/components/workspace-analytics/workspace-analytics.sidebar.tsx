@@ -8,10 +8,7 @@ import type {
   IntegrationListItem,
   ProductWorkspace,
 } from './workspace-analytics.types';
-import {
-  workspaceChannelLabel,
-  workspaceIntegrationLabel,
-} from '@gitroom/frontend/components/workspaces/workspace-channel-label';
+import { WorkspaceChannelLabelView } from '@gitroom/frontend/components/workspaces/workspace-channel-label-view';
 import { WorkspaceSelectRow } from '@gitroom/frontend/components/workspaces/workspace-select-row';
 
 export const WorkspaceAnalyticsSidebar = ({
@@ -89,13 +86,10 @@ export const WorkspaceAnalyticsSidebar = ({
                 width={28}
                 height={28}
               />
-              <span
-                dir="ltr"
-                title={workspaceChannelLabel(channel)}
-                className="min-w-0 truncate text-left"
-              >
-                {workspaceChannelLabel(channel)}
-              </span>
+              <WorkspaceChannelLabelView
+                identifier={channel.providerIdentifier}
+                name={channel.displayName}
+              />
             </div>
           ))}
         </div>
@@ -120,13 +114,10 @@ export const WorkspaceAnalyticsSidebar = ({
                 width={26}
                 height={26}
               />
-              <span
-                dir="ltr"
-                title={workspaceIntegrationLabel(integration)}
-                className="min-w-0 truncate text-left"
-              >
-                {workspaceIntegrationLabel(integration)}
-              </span>
+              <WorkspaceChannelLabelView
+                identifier={integration.identifier}
+                name={integration.name}
+              />
             </button>
           ))}
         </div>

@@ -11,10 +11,7 @@ import {
   type IntegrationListItem,
 } from '@gitroom/frontend/components/workspace-analytics/workspace-analytics.types';
 import { useProductWorkspace } from './workspace.context';
-import {
-  workspaceChannelLabel,
-  workspaceIntegrationLabel,
-} from './workspace-channel-label';
+import { WorkspaceChannelLabelView } from './workspace-channel-label-view';
 import { WorkspaceSelectRow } from './workspace-select-row';
 
 export const WorkspaceSelector = () => {
@@ -197,13 +194,11 @@ export const WorkspaceSelector = () => {
                           width={20}
                           height={20}
                         />
-                        <span
-                          dir="ltr"
-                          title={workspaceChannelLabel(channel)}
-                          className="min-w-0 truncate text-left"
-                        >
-                          {workspaceChannelLabel(channel)}
-                        </span>
+                        <WorkspaceChannelLabelView
+                          identifier={channel.providerIdentifier}
+                          name={channel.displayName}
+                          className="text-[12px]"
+                        />
                       </div>
                     ))}
                   </div>
@@ -239,13 +234,11 @@ export const WorkspaceSelector = () => {
                             width={20}
                             height={20}
                           />
-                          <span
-                            dir="ltr"
-                            title={workspaceIntegrationLabel(integration)}
-                            className="min-w-0 truncate text-left"
-                          >
-                            {workspaceIntegrationLabel(integration)}
-                          </span>
+                          <WorkspaceChannelLabelView
+                            identifier={integration.identifier}
+                            name={integration.name}
+                            className="text-[12px]"
+                          />
                         </button>
                       ))}
                     </div>

@@ -28,6 +28,7 @@ import useCookie from 'react-use-cookie';
 import { Onboarding } from '@gitroom/frontend/components/onboarding/onboarding';
 import { useProductWorkspace } from '@gitroom/frontend/components/workspaces/workspace.context';
 import { workspaceIntegrationLabel } from '@gitroom/frontend/components/workspaces/workspace-channel-label';
+import { WorkspaceChannelLabelView } from '@gitroom/frontend/components/workspaces/workspace-channel-label-view';
 
 export const SVGLine = () => {
   return (
@@ -336,7 +337,10 @@ export const MenuComponent: FC<
           integration.disabled && 'opacity-50'
         )}
       >
-        {channelLabel}
+        <WorkspaceChannelLabelView
+          identifier={integration.identifier}
+          name={integration.name}
+        />
       </div>
       <Menu
         canChangeProfilePicture={integration.changeProfilePicture}
