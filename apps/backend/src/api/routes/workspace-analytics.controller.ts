@@ -63,6 +63,21 @@ export class WorkspaceAnalyticsController {
     );
   }
 
+  @Delete('/workspaces/:workspaceId/channels/:integrationId')
+  removeChannel(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Param('workspaceId') workspaceId: string,
+    @Param('integrationId') integrationId: string
+  ) {
+    return this._workspaceAnalyticsService.removeChannel(
+      org,
+      user,
+      workspaceId,
+      integrationId
+    );
+  }
+
   @Delete('/workspaces/:workspaceId')
   deleteWorkspace(
     @GetOrgFromRequest() org: Organization,

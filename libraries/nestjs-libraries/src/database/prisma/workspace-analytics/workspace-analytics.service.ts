@@ -86,6 +86,36 @@ export class WorkspaceAnalyticsService {
     );
   }
 
+  async removeChannel(
+    org: Organization,
+    user: User,
+    workspaceId: string,
+    integrationId: string
+  ) {
+    const owner = await this._workspaceRepository.getWorkspaceOwner(
+      org.id,
+      user.id,
+      workspaceId,
+      user.isSuperAdmin
+    );
+    if (!owner) {
+      throw new Error('You do not have permission to manage this workspace');
+    }
+    if (!integrationId) {
+      throw new Error('Integration id is required');
+    }
+
+    const removed = await this._workspaceRepository.removeChannel(
+      workspaceId,
+      integrationId
+    );
+    if (!removed) {
+      throw new Error('Workspace channel not found');
+    }
+
+    return { removed: true, integrationId };
+  }
+
   async deleteWorkspace(org: Organization, user: User, workspaceId: string) {
     const owner = await this._workspaceRepository.getWorkspaceOwner(
       org.id,

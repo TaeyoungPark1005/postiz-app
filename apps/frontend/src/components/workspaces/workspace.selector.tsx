@@ -24,10 +24,27 @@ export const WorkspaceSelector = () => {
     selectWorkspace,
     createWorkspace,
     assignChannel,
+    removeChannel,
     mutateWorkspaces,
   } = useProductWorkspace();
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [assigningIntegrationId, setAssigningIntegrationId] = useState('');
+  const [removingIntegrationId, setRemovingIntegrationId] = useState('');
+
+  // integrationId -> names of every workspace it is currently assigned to.
+  // Lets the "Add channels" list flag a channel that already lives in another
+  // workspace, so the same account does not get duplicated by accident.
+  const channelWorkspaceNames = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const workspace of workspaces) {
+      for (const channel of workspace.channels) {
+        const names = map.get(channel.integrationId) || [];
+        names.push(workspace.name);
+        map.set(channel.integrationId, names);
+      }
+    }
+    return map;
+  }, [workspaces]);
 
   const loadIntegrations = useCallback(async () => {
     return parseIntegrationListResponse(
@@ -75,6 +92,22 @@ export const WorkspaceSelector = () => {
       if (!selectedWorkspace) {
         return;
       }
+      const otherWorkspaces = (
+        channelWorkspaceNames.get(integration.id) || []
+      ).filter((name) => name !== selectedWorkspace.name);
+      if (
+        otherWorkspaces.length &&
+        !window.confirm(
+          t(
+            'confirm_cross_workspace_channel',
+            'This channel is already in {0}. Add it to {1} as well?'
+          )
+            .replace('{0}', otherWorkspaces.join(', '))
+            .replace('{1}', selectedWorkspace.name)
+        )
+      ) {
+        return;
+      }
       setAssigningIntegrationId(integration.id);
       try {
         await assignChannel(selectedWorkspace.id, integration.id);
@@ -83,7 +116,33 @@ export const WorkspaceSelector = () => {
         setAssigningIntegrationId('');
       }
     },
-    [assignChannel, mutateWorkspaces, selectedWorkspace]
+    [assignChannel, channelWorkspaceNames, mutateWorkspaces, selectedWorkspace, t]
+  );
+
+  const handleRemoveChannel = useCallback(
+    (integrationId: string) => async () => {
+      if (!selectedWorkspace) {
+        return;
+      }
+      if (
+        !window.confirm(
+          t(
+            'confirm_remove_workspace_channel',
+            'Remove this channel from {0}? The connected account is kept and stays in any other workspace.'
+          ).replace('{0}', selectedWorkspace.name)
+        )
+      ) {
+        return;
+      }
+      setRemovingIntegrationId(integrationId);
+      try {
+        await removeChannel(selectedWorkspace.id, integrationId);
+        await mutateWorkspaces();
+      } finally {
+        setRemovingIntegrationId('');
+      }
+    },
+    [mutateWorkspaces, removeChannel, selectedWorkspace, t]
   );
 
   if (!selectedWorkspace && !workspaces.length) {
@@ -182,7 +241,7 @@ export const WorkspaceSelector = () => {
 
                 {!!selectedWorkspace.channels.length && (
                   <div className="grid grid-cols-2 gap-[6px]">
-                    {selectedWorkspace.channels.slice(0, 6).map((channel) => (
+                    {selectedWorkspace.channels.map((channel) => (
                       <div
                         key={channel.id}
                         className="flex min-w-0 items-center gap-[7px] rounded-[8px] bg-newBgColorInner px-[8px] py-[7px] text-[12px]"
@@ -197,8 +256,26 @@ export const WorkspaceSelector = () => {
                         <WorkspaceChannelLabelView
                           identifier={channel.providerIdentifier}
                           name={channel.displayName}
-                          className="text-[12px]"
+                          className="min-w-0 flex-1 truncate text-[12px]"
                         />
+                        <button
+                          type="button"
+                          onClick={handleRemoveChannel(channel.integrationId)}
+                          disabled={
+                            removingIntegrationId === channel.integrationId
+                          }
+                          title={t(
+                            'remove_from_workspace',
+                            'Remove from this workspace'
+                          )}
+                          aria-label={t(
+                            'remove_from_workspace',
+                            'Remove from this workspace'
+                          )}
+                          className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] text-[14px] leading-none text-newTableText/40 transition-colors hover:bg-boxHover hover:text-red-500 disabled:opacity-50"
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -219,28 +296,40 @@ export const WorkspaceSelector = () => {
                       {t('add_channels', 'Add channels')}
                     </div>
                     <div className="grid grid-cols-2 gap-[6px]">
-                      {assignableIntegrations.slice(0, 8).map((integration) => (
-                        <button
-                          key={integration.id}
-                          type="button"
-                          onClick={handleAssignChannel(integration)}
-                          disabled={assigningIntegrationId === integration.id}
-                          className="flex min-w-0 items-center gap-[7px] rounded-[8px] bg-btnSimple px-[8px] py-[7px] text-start text-[12px] transition-colors hover:bg-boxHover disabled:opacity-60"
-                        >
-                          <SafeImage
-                            src={`/icons/platforms/${integration.identifier}.png`}
-                            className="rounded-[6px]"
-                            alt={integration.identifier}
-                            width={20}
-                            height={20}
-                          />
-                          <WorkspaceChannelLabelView
-                            identifier={integration.identifier}
-                            name={integration.name}
-                            className="text-[12px]"
-                          />
-                        </button>
-                      ))}
+                      {assignableIntegrations.slice(0, 8).map((integration) => {
+                        const inWorkspaces =
+                          channelWorkspaceNames.get(integration.id) || [];
+                        return (
+                          <button
+                            key={integration.id}
+                            type="button"
+                            onClick={handleAssignChannel(integration)}
+                            disabled={assigningIntegrationId === integration.id}
+                            className="flex min-w-0 items-center gap-[7px] rounded-[8px] bg-btnSimple px-[8px] py-[7px] text-start text-[12px] transition-colors hover:bg-boxHover disabled:opacity-60"
+                          >
+                            <SafeImage
+                              src={`/icons/platforms/${integration.identifier}.png`}
+                              className="rounded-[6px]"
+                              alt={integration.identifier}
+                              width={20}
+                              height={20}
+                            />
+                            <span className="flex min-w-0 flex-col">
+                              <WorkspaceChannelLabelView
+                                identifier={integration.identifier}
+                                name={integration.name}
+                                className="truncate text-[12px]"
+                              />
+                              {!!inWorkspaces.length && (
+                                <span className="truncate text-[10px] text-newTableText/50">
+                                  {t('already_in_workspace', 'in')}{' '}
+                                  {inWorkspaces.join(', ')}
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

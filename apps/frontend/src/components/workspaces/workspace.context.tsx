@@ -33,6 +33,10 @@ type ProductWorkspaceContextValue = {
     workspaceId: string,
     integrationId: string
   ) => Promise<void>;
+  readonly removeChannel: (
+    workspaceId: string,
+    integrationId: string
+  ) => Promise<void>;
   readonly mutateWorkspaces: KeyedMutator<readonly ProductWorkspace[]>;
 };
 
@@ -125,6 +129,19 @@ export const ProductWorkspaceProvider: FC<{
     [fetch, mutateWorkspaces]
   );
 
+  const removeChannel = useCallback(
+    async (workspaceId: string, integrationId: string) => {
+      await fetch(
+        `/workspace-analytics/workspaces/${workspaceId}/channels/${integrationId}`,
+        {
+          method: 'DELETE',
+        }
+      );
+      await mutateWorkspaces();
+    },
+    [fetch, mutateWorkspaces]
+  );
+
   const deleteWorkspace = useCallback(
     async (workspaceId: string) => {
       await fetch(`/workspace-analytics/workspaces/${workspaceId}`, {
@@ -164,10 +181,12 @@ export const ProductWorkspaceProvider: FC<{
       createWorkspace,
       deleteWorkspace,
       assignChannel,
+      removeChannel,
       mutateWorkspaces,
     }),
     [
       assignChannel,
+      removeChannel,
       createWorkspace,
       deleteWorkspace,
       isLoading,

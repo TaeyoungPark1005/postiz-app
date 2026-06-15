@@ -143,6 +143,34 @@ export class WorkspaceAnalyticsRepository {
     });
   }
 
+  async removeChannel(workspaceId: string, integrationId: string) {
+    const channel = await this._workspace.model.workspaceChannel.findUnique({
+      where: {
+        workspaceId_integrationId: {
+          workspaceId,
+          integrationId,
+        },
+      },
+      select: { id: true },
+    });
+    if (!channel) {
+      return null;
+    }
+
+    // Drop only the workspace<->channel mapping (and its cached analytics
+    // snapshots, which RESTRICT the delete). The connected Integration / OAuth
+    // tokens are never touched, so the account stays connected and remains in
+    // any other workspace it belongs to.
+    await this._workspace.model.analyticsMetricSnapshot.deleteMany({
+      where: { channelId: channel.id },
+    });
+    await this._workspace.model.workspaceChannel.delete({
+      where: { id: channel.id },
+    });
+
+    return { id: channel.id };
+  }
+
   async deleteWorkspace(orgId: string, workspaceId: string) {
     const workspace = await this._workspace.model.productWorkspace.findFirst({
       where: {
