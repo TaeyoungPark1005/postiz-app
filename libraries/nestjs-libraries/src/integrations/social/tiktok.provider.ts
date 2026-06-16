@@ -723,6 +723,16 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
         }
       }
 
+      if (result.length === 0) {
+        console.warn('TikTok analytics empty', {
+          userInfoError: userStatsData?.error,
+          hasUserStats: !!userStats,
+          statsFields: userStats ? Object.keys(userStats) : [],
+          videoListError: videoListData?.error,
+          videoCount: videos?.length ?? 0,
+        });
+      }
+
       return result;
     } catch (err) {
       console.error('Error fetching TikTok analytics:', err);

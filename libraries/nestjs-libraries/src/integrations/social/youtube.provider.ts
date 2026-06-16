@@ -393,6 +393,14 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
         }, {} as any);
       });
 
+      if (!mappedData?.length) {
+        console.warn('YouTube analytics: no rows for range', {
+          startDate,
+          endDate,
+        });
+        return [];
+      }
+
       const acc = [] as any[];
       acc.push({
         label: 'Estimated Minutes Watched',
@@ -445,7 +453,11 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
       });
 
       return acc;
-    } catch (err) {
+    } catch (err: any) {
+      console.error(
+        'Error fetching YouTube analytics:',
+        err?.response?.data ?? err?.errors ?? err?.message ?? err
+      );
       return [];
     }
   }
