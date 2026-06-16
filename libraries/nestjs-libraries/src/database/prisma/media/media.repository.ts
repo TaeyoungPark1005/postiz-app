@@ -53,11 +53,15 @@ export class MediaRepository {
   }
 
   deleteMedia(org: string, id: string, productWorkspaceId?: string) {
-    return this._media.model.media.update({
+    // updateMany (not update) so we can OR-match legacy media whose
+    // productWorkspaceId is null while still scoping to this workspace.
+    return this._media.model.media.updateMany({
       where: {
         id,
         organizationId: org,
-        ...(productWorkspaceId ? { productWorkspaceId } : {}),
+        ...(productWorkspaceId
+          ? { OR: [{ productWorkspaceId }, { productWorkspaceId: null }] }
+          : {}),
       },
       data: {
         deletedAt: new Date(),
@@ -94,7 +98,11 @@ export class MediaRepository {
       where: {
         organizationId: org,
         deletedAt: null,
-        ...(productWorkspaceId ? { productWorkspaceId } : {}),
+        // Show media scoped to this workspace alongside legacy media that
+        // predates workspace scoping (productWorkspaceId is null).
+        ...(productWorkspaceId
+          ? { OR: [{ productWorkspaceId }, { productWorkspaceId: null }] }
+          : {}),
       },
     };
     const pages = Math.ceil((await this._media.model.media.count(query)) / 18);
