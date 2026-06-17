@@ -1,8 +1,13 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
-import type { PostPerformanceItem } from './workspace-analytics.types';
+import type {
+  Metric,
+  PostPerformanceItem,
+} from './workspace-analytics.types';
 import { formatValue } from './workspace-analytics.utils';
+import { metrics } from './workspace-analytics.constants';
 
 export const hookTypeLabels: Record<string, string> = {
   QUESTION: 'Question',
@@ -30,12 +35,38 @@ const formatPublished = (value: string) => {
   });
 };
 
+// 24h -> 7d growth, null when not computable (too young or no 24h baseline).
+const growthOf = (item: PostPerformanceItem): number | null => {
+  if (item.value24h <= 0 || item.value7d <= 0) {
+    return null;
+  }
+  return ((item.value7d - item.value24h) / item.value24h) * 100;
+};
+
 export const WorkspacePostTable = ({
   posts,
+  metric,
 }: {
   readonly posts: readonly PostPerformanceItem[];
+  readonly metric: Metric;
 }) => {
   const t = useT();
+
+  const metricLabel = useMemo(
+    () => metrics.find((item) => item.key === metric)?.label || metric,
+    [metric]
+  );
+
+  // Primary value per post (7d, falling back to 24h for younger posts) and the
+  // list max for relative in-row bars.
+  const max = useMemo(
+    () =>
+      Math.max(
+        1,
+        ...posts.map((post) => post.value7d || post.value24h || 0)
+      ),
+    [posts]
+  );
 
   if (!posts.length) {
     return (
@@ -66,46 +97,72 @@ export const WorkspacePostTable = ({
               <th className="font-medium px-[12px] py-[10px] whitespace-nowrap">
                 {t('published', 'Published')}
               </th>
-              <th className="font-medium px-[12px] py-[10px] text-right whitespace-nowrap">
-                {t('value_24h', '24h')}
+              <th className="font-medium px-[12px] py-[10px] min-w-[200px]">
+                {metricLabel} · 7d
               </th>
               <th className="font-medium px-[16px] py-[10px] text-right whitespace-nowrap">
-                {t('value_7d', '7d')}
+                {t('growth_24h_7d', 'Δ 24h→7d')}
               </th>
             </tr>
           </thead>
           <tbody>
-            {posts.map((post) => (
-              <tr
-                key={post.postId}
-                className="border-t border-newTableBorder/60 hover:bg-boxHover transition-colors"
-              >
-                <td className="px-[16px] py-[10px] max-w-[420px]">
-                  <div className="flex items-center gap-[8px] min-w-0">
-                    {post.hookType ? (
-                      <span className="shrink-0 text-[11px] px-[8px] py-[2px] rounded-full bg-[#612bd3]/15 text-[#a98bf0]">
-                        {hookTypeLabels[post.hookType] || post.hookType}
+            {posts.map((post) => {
+              const primary = post.value7d || post.value24h || 0;
+              const ratio = max > 0 ? primary / max : 0;
+              const growth = growthOf(post);
+              return (
+                <tr
+                  key={post.postId}
+                  className="border-t border-newTableBorder/60 hover:bg-boxHover transition-colors"
+                >
+                  <td className="px-[16px] py-[10px] max-w-[360px]">
+                    <div className="flex items-center gap-[8px] min-w-0">
+                      {post.hookType ? (
+                        <span className="shrink-0 text-[11px] px-[8px] py-[2px] rounded-full bg-[#612bd3]/15 text-[#a98bf0]">
+                          {hookTypeLabels[post.hookType] || post.hookType}
+                        </span>
+                      ) : null}
+                      <span className="min-w-0 truncate text-newTableText">
+                        {post.intro}
                       </span>
-                    ) : null}
-                    <span className="min-w-0 truncate text-newTableText">
-                      {post.intro}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-[12px] py-[10px] whitespace-nowrap text-newTableText/80">
-                  {post.channelLabel}
-                </td>
-                <td className="px-[12px] py-[10px] whitespace-nowrap text-newTableText/60">
-                  {formatPublished(post.publishedAt)}
-                </td>
-                <td className="px-[12px] py-[10px] text-right tabular-nums">
-                  {formatValue(post.value24h)}
-                </td>
-                <td className="px-[16px] py-[10px] text-right tabular-nums font-semibold">
-                  {formatValue(post.value7d)}
-                </td>
-              </tr>
-            ))}
+                    </div>
+                  </td>
+                  <td className="px-[12px] py-[10px] whitespace-nowrap text-newTableText/80">
+                    {post.channelLabel}
+                  </td>
+                  <td className="px-[12px] py-[10px] whitespace-nowrap text-newTableText/60">
+                    {formatPublished(post.publishedAt)}
+                  </td>
+                  <td className="px-[12px] py-[10px]">
+                    <div className="flex items-center gap-[10px]">
+                      <div className="flex-1 min-w-[60px] max-w-[160px] h-[8px] rounded-full bg-newBgColorInner overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#612bd3]"
+                          style={{ width: `${Math.round(ratio * 100)}%` }}
+                        />
+                      </div>
+                      <span className="w-[72px] text-right tabular-nums font-semibold shrink-0">
+                        {formatValue(primary)}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-[16px] py-[10px] text-right tabular-nums whitespace-nowrap">
+                    {growth === null ? (
+                      <span className="text-newTableText/40">—</span>
+                    ) : (
+                      <span
+                        className={
+                          growth >= 0 ? 'text-[#32d583]' : 'text-red-400'
+                        }
+                      >
+                        {growth >= 0 ? '+' : ''}
+                        {Math.round(growth)}%
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

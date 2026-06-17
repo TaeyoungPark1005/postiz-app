@@ -168,7 +168,7 @@ export const WorkspaceAnalytics = () => {
           <>
             <WorkspaceSummaryCards cards={summary.cards} />
             <WorkspaceSeriesGrid series={summary.series} />
-            <WorkspacePostTable posts={summary.postPerformance} />
+            <WorkspacePostTable posts={summary.postPerformance} metric={metric} />
             <WorkspaceHeatmap cells={summary.timeOfDay} />
             <WorkspaceHookCards hooks={summary.hookTypePerformance} />
             {workspace ? (
