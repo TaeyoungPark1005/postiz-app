@@ -42,6 +42,7 @@ import { AnnouncementsRepository } from '@gitroom/nestjs-libraries/database/pris
 import { AnnouncementsService } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.service';
 import { WorkspaceAnalyticsRepository } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.repository';
 import { WorkspaceAnalyticsService } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.service';
+import { PostAnalyticsService } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/post-analytics.service';
 
 @Global()
 @Module({
@@ -93,6 +94,7 @@ import { WorkspaceAnalyticsService } from '@gitroom/nestjs-libraries/database/pr
     AnnouncementsService,
     WorkspaceAnalyticsRepository,
     WorkspaceAnalyticsService,
+    PostAnalyticsService,
   ],
   get exports() {
     return this.providers;

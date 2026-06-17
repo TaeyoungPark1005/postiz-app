@@ -49,12 +49,38 @@ export type AnalyticsCardSummary = {
   readonly value: number | string;
 };
 
+export type PostPerformanceItem = {
+  readonly postId: string;
+  readonly intro: string;
+  readonly channelLabel: string;
+  readonly publishedAt: string;
+  readonly hookType: string | null;
+  readonly value24h: number;
+  readonly value7d: number;
+};
+
+export type TimeOfDayCell = {
+  readonly weekday: number;
+  readonly hour: number;
+  readonly value: number;
+  readonly count: number;
+};
+
+export type HookTypePerformanceItem = {
+  readonly hookType: string;
+  readonly avgValue: number;
+  readonly count: number;
+};
+
 export type AnalyticsSummary = {
   readonly cards: readonly AnalyticsCardSummary[];
   readonly series: readonly AnalyticsSeries[];
   readonly channelComparison: readonly AnalyticsSeries[];
   readonly topPosts: readonly AnalyticsSeries[];
   readonly topCampaigns: readonly AnalyticsSeries[];
+  readonly postPerformance: readonly PostPerformanceItem[];
+  readonly timeOfDay: readonly TimeOfDayCell[];
+  readonly hookTypePerformance: readonly HookTypePerformanceItem[];
 };
 
 class WorkspaceAnalyticsResponseError extends Error {
@@ -194,6 +220,41 @@ const parseAnalyticsCardSummary = (value: unknown): AnalyticsCardSummary => ({
   value: parseStringOrNumber(readField(value, 'value'), 'value'),
 });
 
+const parseStringOrNull = (value: unknown): string | null =>
+  typeof value === 'string' ? value : null;
+
+// Tolerant array parser: post-level fields default to [] if a server hasn't
+// been upgraded yet, so the existing views keep working during a rollout.
+const parseOptionalArray = <T>(
+  value: unknown,
+  parseItem: (item: unknown) => T
+): readonly T[] => (Array.isArray(value) ? value.map(parseItem) : []);
+
+const parsePostPerformanceItem = (value: unknown): PostPerformanceItem => ({
+  postId: parseString(readField(value, 'postId'), 'postId'),
+  intro: parseString(readField(value, 'intro'), 'intro'),
+  channelLabel: parseString(readField(value, 'channelLabel'), 'channelLabel'),
+  publishedAt: parseString(readField(value, 'publishedAt'), 'publishedAt'),
+  hookType: parseStringOrNull(readOptionalField(value, 'hookType')),
+  value24h: parseNumber(readField(value, 'value24h'), 'value24h'),
+  value7d: parseNumber(readField(value, 'value7d'), 'value7d'),
+});
+
+const parseTimeOfDayCell = (value: unknown): TimeOfDayCell => ({
+  weekday: parseNumber(readField(value, 'weekday'), 'weekday'),
+  hour: parseNumber(readField(value, 'hour'), 'hour'),
+  value: parseNumber(readField(value, 'value'), 'value'),
+  count: parseNumber(readField(value, 'count'), 'count'),
+});
+
+const parseHookTypePerformanceItem = (
+  value: unknown
+): HookTypePerformanceItem => ({
+  hookType: parseString(readField(value, 'hookType'), 'hookType'),
+  avgValue: parseNumber(readField(value, 'avgValue'), 'avgValue'),
+  count: parseNumber(readField(value, 'count'), 'count'),
+});
+
 export const parseAnalyticsSummary = (value: unknown): AnalyticsSummary => ({
   cards: parseArray(
     readField(value, 'cards'),
@@ -219,5 +280,17 @@ export const parseAnalyticsSummary = (value: unknown): AnalyticsSummary => ({
     readField(value, 'topCampaigns'),
     'topCampaigns',
     parseAnalyticsSeries
+  ),
+  postPerformance: parseOptionalArray(
+    readOptionalField(value, 'postPerformance'),
+    parsePostPerformanceItem
+  ),
+  timeOfDay: parseOptionalArray(
+    readOptionalField(value, 'timeOfDay'),
+    parseTimeOfDayCell
+  ),
+  hookTypePerformance: parseOptionalArray(
+    readOptionalField(value, 'hookTypePerformance'),
+    parseHookTypePerformanceItem
   ),
 });

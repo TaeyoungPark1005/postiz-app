@@ -108,4 +108,36 @@ export class WorkspaceAnalyticsController {
       channelId,
     });
   }
+
+  @Post('/workspaces/:workspaceId/insights')
+  hookInsights(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Param('workspaceId') workspaceId: string,
+    @Body() body: { metric?: string; date?: number }
+  ) {
+    return this._workspaceAnalyticsService.hookInsights(org, user, workspaceId, {
+      metric: parseMetric(body?.metric),
+      date: Number(body?.date) || 30,
+    });
+  }
+
+  @Post('/workspaces/:workspaceId/hook-suggestions')
+  hookSuggestions(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Param('workspaceId') workspaceId: string,
+    @Body() body: { topic: string; metric?: string; date?: number }
+  ) {
+    return this._workspaceAnalyticsService.hookSuggestions(
+      org,
+      user,
+      workspaceId,
+      {
+        topic: body?.topic || '',
+        metric: parseMetric(body?.metric),
+        date: Number(body?.date) || 30,
+      }
+    );
+  }
 }

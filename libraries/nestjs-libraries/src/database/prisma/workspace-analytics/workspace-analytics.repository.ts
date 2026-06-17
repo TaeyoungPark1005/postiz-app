@@ -1,15 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { AnalyticsCanonicalMetric, WorkspaceRole } from '@prisma/client';
+import {
+  AnalyticsAgeBucket,
+  AnalyticsCanonicalMetric,
+  PostHookType,
+  WorkspaceRole,
+} from '@prisma/client';
 import { PrismaRepository } from '@gitroom/nestjs-libraries/database/prisma/prisma.service';
 
 interface SnapshotInput {
   workspaceId: string;
   channelId: string;
+  postId?: string | null;
   providerIdentifier: string;
   canonicalMetric: AnalyticsCanonicalMetric;
   rawMetric: string;
   value: number;
   measuredAt: Date;
+  ageBucket?: AnalyticsAgeBucket;
 }
 
 @Injectable()
@@ -19,6 +26,7 @@ export class WorkspaceAnalyticsRepository {
       | 'analyticsMetricSnapshot'
       | 'campaign'
       | 'media'
+      | 'post'
       | 'postWorkspaceAttribution'
       | 'productWorkspace'
       | 'workspaceChannel'
@@ -216,10 +224,13 @@ export class WorkspaceAnalyticsRepository {
     from: Date,
     snapshots: SnapshotInput[]
   ) {
+    // Only clear channel-aggregate rows (postId null). Post-level rows written
+    // by the analytics collector must survive a channel refresh.
     await this._snapshot.model.analyticsMetricSnapshot.deleteMany({
       where: {
         workspaceId,
         channelId,
+        postId: null,
         measuredAt: {
           gte: from,
         },
@@ -245,6 +256,9 @@ export class WorkspaceAnalyticsRepository {
       where: {
         workspaceId,
         canonicalMetric: metric,
+        // Channel/total/cards series must use only channel-aggregate rows so
+        // post-level rows don't double-count into the account totals.
+        postId: null,
         measuredAt: {
           gte: from,
         },
@@ -256,6 +270,82 @@ export class WorkspaceAnalyticsRepository {
       include: {
         channel: true,
         campaign: true,
+        post: true,
+      },
+    });
+  }
+
+  // --- Post-level analytics (collector + post views) ---
+
+  listChannelsForIntegration(integrationId: string) {
+    return this._workspaceChannel.model.workspaceChannel.findMany({
+      where: { integrationId },
+      select: { id: true, workspaceId: true, providerIdentifier: true },
+    });
+  }
+
+  getPostForCollection(postId: string) {
+    return this._workspace.model.post.findUnique({
+      where: { id: postId },
+      select: {
+        id: true,
+        organizationId: true,
+        integrationId: true,
+        releaseId: true,
+        content: true,
+        title: true,
+        publishDate: true,
+        hookType: true,
+        integration: { select: { providerIdentifier: true } },
+      },
+    });
+  }
+
+  setHookClassification(
+    postId: string,
+    hookType: PostHookType,
+    confidence: number
+  ) {
+    return this._workspace.model.post.update({
+      where: { id: postId },
+      data: {
+        hookType,
+        hookTypeConfidence: confidence,
+        hookClassifiedAt: new Date(),
+      },
+    });
+  }
+
+  async replacePostSnapshots(
+    workspaceId: string,
+    channelId: string,
+    postId: string,
+    ageBucket: AnalyticsAgeBucket,
+    snapshots: SnapshotInput[]
+  ) {
+    await this._snapshot.model.analyticsMetricSnapshot.deleteMany({
+      where: { workspaceId, channelId, postId, ageBucket },
+    });
+
+    if (!snapshots.length) {
+      return { count: 0 };
+    }
+
+    return this._snapshot.model.analyticsMetricSnapshot.createMany({
+      data: snapshots,
+    });
+  }
+
+  listPostSnapshots(workspaceId: string, from: Date) {
+    return this._snapshot.model.analyticsMetricSnapshot.findMany({
+      where: {
+        workspaceId,
+        postId: { not: null },
+        measuredAt: { gte: from },
+      },
+      orderBy: { measuredAt: 'asc' },
+      include: {
+        channel: true,
         post: true,
       },
     });

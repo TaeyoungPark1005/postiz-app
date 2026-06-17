@@ -15,6 +15,7 @@ import { PostResponse } from '@gitroom/nestjs-libraries/integrations/social/soci
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { TypedSearchAttributes } from '@temporalio/common';
 import { postId as postIdSearchParam } from '@gitroom/nestjs-libraries/temporal/temporal.search.attribute';
+import { postAnalyticsCollectionWorkflow } from '../post-analytics-collection.workflow';
 
 const proxyTaskQueue = (taskQueue: string) => {
   return proxyActivities<PostActivity>({
@@ -243,6 +244,18 @@ export async function postWorkflowV101({
     post.organizationId,
     post.integration.id
   );
+
+  // kick off post-level analytics collection (ages 1h/6h/24h/3d/7d). Detached
+  // child (ABANDON) and fully guarded so it can never affect publishing.
+  if (postsResults[0]?.postId) {
+    try {
+      await startChild(postAnalyticsCollectionWorkflow, {
+        parentClosePolicy: 'ABANDON',
+        args: [{ postId }],
+        workflowId: `post_analytics_${postId}_${makeId(6)}`,
+      });
+    } catch (err) {}
+  }
 
   // load internal plugs like repost by other users
   const internalPlugsList = await internalPlugs(

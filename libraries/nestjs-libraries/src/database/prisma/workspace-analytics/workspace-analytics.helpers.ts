@@ -1,4 +1,4 @@
-import { AnalyticsCanonicalMetric } from '@prisma/client';
+import { AnalyticsAgeBucket, AnalyticsCanonicalMetric } from '@prisma/client';
 
 const metricAliases: Record<string, AnalyticsCanonicalMetric> = {
   view: AnalyticsCanonicalMetric.VIEWS,
@@ -58,6 +58,30 @@ export const normalizeMetric = (label: string) => {
 };
 
 export const dateKey = (date: Date) => date.toISOString().slice(0, 10);
+
+// --- Post-level analytics helpers ---
+
+// Incremental gaps (ms) between collection ages, summing to the absolute age.
+export const AGE_BUCKET_MS: Record<AnalyticsAgeBucket, number> = {
+  H1: 3_600_000,
+  H6: 21_600_000,
+  H24: 86_400_000,
+  D3: 259_200_000,
+  D7: 604_800_000,
+};
+
+export const AGE_BUCKET_ORDER: AnalyticsAgeBucket[] = [
+  'H1',
+  'H6',
+  'H24',
+  'D3',
+  'D7',
+];
+
+// Day-of-week (0=Sun..6=Sat) and hour-of-day (0..23) in UTC, used for the
+// publish time-of-day heatmap. UTC keeps buckets deterministic across hosts.
+export const weekdayKey = (date: Date) => date.getUTCDay();
+export const hourKey = (date: Date) => date.getUTCHours();
 
 export const workspaceChannelLabel = (
   providerIdentifier: string,

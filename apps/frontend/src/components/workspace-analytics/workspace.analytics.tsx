@@ -12,6 +12,12 @@ import {
   WorkspaceSummaryCards,
 } from './workspace-analytics.cards';
 import { WorkspaceAnalyticsSidebar } from './workspace-analytics.sidebar';
+import { WorkspacePostTable } from './workspace-analytics.post-table';
+import { WorkspaceHeatmap } from './workspace-analytics.heatmap';
+import {
+  WorkspaceHookCards,
+  WorkspaceHookAI,
+} from './workspace-analytics.hooks';
 import {
   parseAnalyticsSummary,
   parseIntegrationListResponse,
@@ -162,6 +168,16 @@ export const WorkspaceAnalytics = () => {
           <>
             <WorkspaceSummaryCards cards={summary.cards} />
             <WorkspaceSeriesGrid series={summary.series} />
+            <WorkspacePostTable posts={summary.postPerformance} />
+            <WorkspaceHeatmap cells={summary.timeOfDay} />
+            <WorkspaceHookCards hooks={summary.hookTypePerformance} />
+            {workspace ? (
+              <WorkspaceHookAI
+                workspaceId={workspace.id}
+                metric={metric}
+                date={date}
+              />
+            ) : null}
           </>
         )}
       </main>

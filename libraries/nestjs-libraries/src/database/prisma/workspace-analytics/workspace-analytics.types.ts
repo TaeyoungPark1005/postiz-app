@@ -24,3 +24,26 @@ export interface WorkspaceAnalyticsCard {
   label: string;
   value: number | string;
 }
+
+export interface WorkspacePostPerformance {
+  postId: string;
+  intro: string;
+  channelLabel: string;
+  publishedAt: string;
+  hookType: string | null;
+  value24h: number;
+  value7d: number;
+}
+
+export interface WorkspaceTimeOfDayCell {
+  weekday: number; // 0=Sun .. 6=Sat (UTC)
+  hour: number; // 0..23 (UTC)
+  value: number; // average of selected metric at the 24h age bucket
+  count: number;
+}
+
+export interface WorkspaceHookTypePerformance {
+  hookType: string;
+  avgValue: number; // average of selected metric at the 24h age bucket
+  count: number;
+}

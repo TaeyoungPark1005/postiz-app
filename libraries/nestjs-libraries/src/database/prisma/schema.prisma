@@ -419,6 +419,9 @@ model Post {
   lastMessageId              String?
   intervalInDays             Int?
   error                      String?
+  hookType                   PostHookType?
+  hookTypeConfidence         Float?
+  hookClassifiedAt           DateTime?
   createdAt                  DateTime                   @default(now())
   updatedAt                  DateTime                   @updatedAt
   deletedAt                  DateTime?
@@ -474,6 +477,24 @@ enum AnalyticsCanonicalMetric {
   VIDEO_COUNT
   ENGAGEMENTS
   ENGAGEMENT_RATE
+}
+
+enum AnalyticsAgeBucket {
+  H1
+  H6
+  H24
+  D3
+  D7
+}
+
+enum PostHookType {
+  QUESTION
+  NUMBER
+  EMPATHY
+  SHOCK
+  STORY
+  HOWTO
+  OTHER
 }
 
 model ProductWorkspace {
@@ -572,6 +593,7 @@ model AnalyticsMetricSnapshot {
   rawMetric          String
   value              Float
   measuredAt         DateTime
+  ageBucket          AnalyticsAgeBucket?
   fetchedAt          DateTime                 @default(now())
   workspace          ProductWorkspace         @relation(fields: [workspaceId], references: [id])
   channel            WorkspaceChannel         @relation(fields: [channelId], references: [id])
@@ -581,6 +603,7 @@ model AnalyticsMetricSnapshot {
   @@index([workspaceId, canonicalMetric, measuredAt])
   @@index([channelId, canonicalMetric, measuredAt])
   @@index([postId])
+  @@index([postId, canonicalMetric, ageBucket])
   @@index([campaignId])
   @@index([providerIdentifier])
   @@index([fetchedAt])

@@ -8,14 +8,27 @@ import type {
   WorkspaceAnalyticsCard,
   WorkspaceAnalyticsQuery,
   WorkspaceAnalyticsSeries,
+  WorkspaceHookTypePerformance,
+  WorkspacePostPerformance,
+  WorkspaceTimeOfDayCell,
 } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.types';
-import { dateKey, normalizeMetric, toSlug, workspaceChannelLabel } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.helpers';
+import {
+  dateKey,
+  hourKey,
+  normalizeMetric,
+  toSlug,
+  weekdayKey,
+  workspaceChannelLabel,
+} from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.helpers';
+import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
+import { OpenaiService } from '@gitroom/nestjs-libraries/openai/openai.service';
 
 @Injectable()
 export class WorkspaceAnalyticsService {
   constructor(
     private _workspaceRepository: WorkspaceAnalyticsRepository,
-    private _integrationService: IntegrationService
+    private _integrationService: IntegrationService,
+    private _openaiService: OpenaiService
   ) {}
 
   async listWorkspaces(org: Organization, user: User) {
@@ -193,6 +206,11 @@ export class WorkspaceAnalyticsService {
     const series = this.toSeries(query.groupBy, snapshots);
     const channelComparison = this.toSeries('channel', snapshots);
 
+    const postSnapshots = await this._workspaceRepository.listPostSnapshots(
+      workspace.id,
+      from
+    );
+
     return {
       workspace,
       metric: query.metric,
@@ -202,7 +220,172 @@ export class WorkspaceAnalyticsService {
       channelComparison,
       topPosts: this.toSeries('post', snapshots).slice(0, 10),
       topCampaigns: this.toSeries('campaign', snapshots).slice(0, 10),
+      postPerformance: this.toPostPerformance(postSnapshots, query.metric),
+      timeOfDay: this.toTimeOfDay(postSnapshots, query.metric),
+      hookTypePerformance: this.toHookTypePerformance(
+        postSnapshots,
+        query.metric
+      ),
     };
+  }
+
+  private postIntro(post?: { title: string | null; content: string } | null) {
+    if (!post) {
+      return 'Unknown post';
+    }
+    const text = stripHtmlValidation('none', post.title || post.content || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text.slice(0, 80) || 'Unknown post';
+  }
+
+  // Per-post selected-metric values at the 24h and 7d age buckets. Within a
+  // workspace each post maps to a single channel, so no double-counting.
+  private toPostPerformance(
+    postSnapshots: Awaited<
+      ReturnType<WorkspaceAnalyticsRepository['listPostSnapshots']>
+    >,
+    metric: WorkspaceAnalyticsQuery['metric']
+  ): WorkspacePostPerformance[] {
+    const byPost = new Map<
+      string,
+      {
+        post: (typeof postSnapshots)[number]['post'];
+        channel: (typeof postSnapshots)[number]['channel'];
+        value24h: number;
+        value7d: number;
+      }
+    >();
+
+    for (const snapshot of postSnapshots) {
+      if (snapshot.canonicalMetric !== metric || !snapshot.postId) {
+        continue;
+      }
+      const entry = byPost.get(snapshot.postId) || {
+        post: snapshot.post,
+        channel: snapshot.channel,
+        value24h: 0,
+        value7d: 0,
+      };
+      entry.post = snapshot.post;
+      entry.channel = snapshot.channel;
+      if (snapshot.ageBucket === 'H24') {
+        entry.value24h = snapshot.value;
+      } else if (snapshot.ageBucket === 'D7') {
+        entry.value7d = snapshot.value;
+      }
+      byPost.set(snapshot.postId, entry);
+    }
+
+    return Array.from(byPost.entries())
+      .map(([postId, entry]) => ({
+        postId,
+        intro: this.postIntro(entry.post),
+        channelLabel: entry.channel
+          ? workspaceChannelLabel(
+              entry.channel.providerIdentifier,
+              entry.channel.displayName
+            )
+          : 'Unknown channel',
+        publishedAt: entry.post?.publishDate
+          ? new Date(entry.post.publishDate).toISOString()
+          : '',
+        hookType: entry.post?.hookType ?? null,
+        value24h: entry.value24h,
+        value7d: entry.value7d,
+      }))
+      .sort(
+        (left, right) =>
+          (right.value7d || right.value24h) - (left.value7d || left.value24h)
+      )
+      .slice(0, 50);
+  }
+
+  // Average selected-metric value (at 24h) per UTC weekday×hour of publish time.
+  private toTimeOfDay(
+    postSnapshots: Awaited<
+      ReturnType<WorkspaceAnalyticsRepository['listPostSnapshots']>
+    >,
+    metric: WorkspaceAnalyticsQuery['metric']
+  ): WorkspaceTimeOfDayCell[] {
+    const perPost = new Map<
+      string,
+      { weekday: number; hour: number; value: number }
+    >();
+    for (const snapshot of postSnapshots) {
+      if (
+        snapshot.canonicalMetric !== metric ||
+        snapshot.ageBucket !== 'H24' ||
+        !snapshot.postId ||
+        !snapshot.post?.publishDate
+      ) {
+        continue;
+      }
+      const published = new Date(snapshot.post.publishDate);
+      perPost.set(snapshot.postId, {
+        weekday: weekdayKey(published),
+        hour: hourKey(published),
+        value: snapshot.value,
+      });
+    }
+
+    const cells = new Map<
+      string,
+      { weekday: number; hour: number; sum: number; count: number }
+    >();
+    for (const { weekday, hour, value } of perPost.values()) {
+      const key = `${weekday}-${hour}`;
+      const cell = cells.get(key) || { weekday, hour, sum: 0, count: 0 };
+      cell.sum += value;
+      cell.count += 1;
+      cells.set(key, cell);
+    }
+
+    return Array.from(cells.values()).map((cell) => ({
+      weekday: cell.weekday,
+      hour: cell.hour,
+      value: cell.count ? cell.sum / cell.count : 0,
+      count: cell.count,
+    }));
+  }
+
+  // Average selected-metric value (at 24h) grouped by hook type.
+  private toHookTypePerformance(
+    postSnapshots: Awaited<
+      ReturnType<WorkspaceAnalyticsRepository['listPostSnapshots']>
+    >,
+    metric: WorkspaceAnalyticsQuery['metric']
+  ): WorkspaceHookTypePerformance[] {
+    const perPost = new Map<string, { hookType: string; value: number }>();
+    for (const snapshot of postSnapshots) {
+      if (
+        snapshot.canonicalMetric !== metric ||
+        snapshot.ageBucket !== 'H24' ||
+        !snapshot.postId
+      ) {
+        continue;
+      }
+      perPost.set(snapshot.postId, {
+        hookType: snapshot.post?.hookType ?? 'OTHER',
+        value: snapshot.value,
+      });
+    }
+
+    const agg = new Map<string, { sum: number; count: number }>();
+    for (const { hookType, value } of perPost.values()) {
+      const current = agg.get(hookType) || { sum: 0, count: 0 };
+      current.sum += value;
+      current.count += 1;
+      agg.set(hookType, current);
+    }
+
+    return Array.from(agg.entries())
+      .map(([hookType, current]) => ({
+        hookType,
+        avgValue: current.count ? current.sum / current.count : 0,
+        count: current.count,
+      }))
+      .sort((left, right) => right.avgValue - left.avgValue);
   }
 
   private toSnapshots(
@@ -293,5 +476,93 @@ export class WorkspaceAnalyticsService {
       { label: 'Snapshot points', value: snapshots.length },
       { label: 'Channels', value: channelComparison.length },
     ];
+  }
+
+  // On-demand AI insight summary over the workspace's post-level performance.
+  async hookInsights(
+    org: Organization,
+    user: User,
+    workspaceId: string,
+    query: { metric: WorkspaceAnalyticsQuery['metric']; date: number }
+  ) {
+    const workspace = await this._workspaceRepository.getWorkspaceForUser(
+      org.id,
+      user.id,
+      workspaceId,
+      user.isSuperAdmin
+    );
+    if (!workspace) {
+      throw new Error('Workspace not found');
+    }
+
+    const days = Math.min(Math.max(Number(query.date) || 30, 1), 90);
+    const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const postSnapshots = await this._workspaceRepository.listPostSnapshots(
+      workspace.id,
+      from
+    );
+    const performance = this.toPostPerformance(postSnapshots, query.metric);
+    if (!performance.length) {
+      return { summary: '' };
+    }
+
+    const toItem = (item: WorkspacePostPerformance) => ({
+      intro: item.intro,
+      hookType: item.hookType,
+      value: item.value7d || item.value24h,
+    });
+
+    const summary = await this._openaiService.summarizeHookInsights({
+      metricLabel: String(query.metric),
+      topPosts: performance.slice(0, 5).map(toItem),
+      bottomPosts: performance.slice(-5).map(toItem),
+      hookStats: this.toHookTypePerformance(postSnapshots, query.metric),
+    });
+
+    return { summary };
+  }
+
+  // On-demand hook suggestions for a topic, grounded in what worked here.
+  async hookSuggestions(
+    org: Organization,
+    user: User,
+    workspaceId: string,
+    params: {
+      topic: string;
+      metric: WorkspaceAnalyticsQuery['metric'];
+      date: number;
+    }
+  ) {
+    const workspace = await this._workspaceRepository.getWorkspaceForUser(
+      org.id,
+      user.id,
+      workspaceId,
+      user.isSuperAdmin
+    );
+    if (!workspace) {
+      throw new Error('Workspace not found');
+    }
+
+    const topic = (params.topic || '').trim();
+    if (!topic) {
+      throw new Error('Topic is required');
+    }
+
+    const days = Math.min(Math.max(Number(params.date) || 30, 1), 90);
+    const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const postSnapshots = await this._workspaceRepository.listPostSnapshots(
+      workspace.id,
+      from
+    );
+    const examples = this.toPostPerformance(postSnapshots, params.metric)
+      .slice(0, 5)
+      .map((item) => ({
+        intro: item.intro,
+        hookType: item.hookType,
+        value: item.value7d || item.value24h,
+      }));
+
+    const suggestions = await this._openaiService.suggestHooks(topic, examples);
+    return { suggestions };
   }
 }
