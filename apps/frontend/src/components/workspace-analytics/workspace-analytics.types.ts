@@ -55,8 +55,9 @@ export type PostPerformanceItem = {
   readonly channelLabel: string;
   readonly publishedAt: string;
   readonly hookType: string | null;
-  readonly value24h: number;
-  readonly value7d: number;
+  readonly value: number;
+  readonly ageBucket: string;
+  readonly growth: number | null;
 };
 
 export type TimeOfDayCell = {
@@ -223,6 +224,9 @@ const parseAnalyticsCardSummary = (value: unknown): AnalyticsCardSummary => ({
 const parseStringOrNull = (value: unknown): string | null =>
   typeof value === 'string' ? value : null;
 
+const parseNumberOrNull = (value: unknown): number | null =>
+  typeof value === 'number' ? value : null;
+
 // Tolerant array parser: post-level fields default to [] if a server hasn't
 // been upgraded yet, so the existing views keep working during a rollout.
 const parseOptionalArray = <T>(
@@ -236,8 +240,9 @@ const parsePostPerformanceItem = (value: unknown): PostPerformanceItem => ({
   channelLabel: parseString(readField(value, 'channelLabel'), 'channelLabel'),
   publishedAt: parseString(readField(value, 'publishedAt'), 'publishedAt'),
   hookType: parseStringOrNull(readOptionalField(value, 'hookType')),
-  value24h: parseNumber(readField(value, 'value24h'), 'value24h'),
-  value7d: parseNumber(readField(value, 'value7d'), 'value7d'),
+  value: parseNumber(readField(value, 'value'), 'value'),
+  ageBucket: parseString(readField(value, 'ageBucket'), 'ageBucket'),
+  growth: parseNumberOrNull(readOptionalField(value, 'growth')),
 });
 
 const parseTimeOfDayCell = (value: unknown): TimeOfDayCell => ({

@@ -31,8 +31,9 @@ export interface WorkspacePostPerformance {
   channelLabel: string;
   publishedAt: string;
   hookType: string | null;
-  value24h: number;
-  value7d: number;
+  value: number; // value at the latest collected age bucket for the metric
+  ageBucket: string; // which bucket value is from (H1|H6|H24|D3|D7)
+  growth: number | null; // first->latest collected bucket growth %
 }
 
 export interface WorkspaceTimeOfDayCell {

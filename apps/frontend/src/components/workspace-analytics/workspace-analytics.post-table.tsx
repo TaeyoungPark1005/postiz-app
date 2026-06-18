@@ -19,6 +19,15 @@ export const hookTypeLabels: Record<string, string> = {
   OTHER: 'Other',
 };
 
+// Age bucket -> short human label.
+const bucketLabels: Record<string, string> = {
+  H1: '1h',
+  H6: '6h',
+  H24: '24h',
+  D3: '3d',
+  D7: '7d',
+};
+
 const formatPublished = (value: string) => {
   if (!value) {
     return '—';
@@ -35,14 +44,6 @@ const formatPublished = (value: string) => {
   });
 };
 
-// 24h -> 7d growth, null when not computable (too young or no 24h baseline).
-const growthOf = (item: PostPerformanceItem): number | null => {
-  if (item.value24h <= 0 || item.value7d <= 0) {
-    return null;
-  }
-  return ((item.value7d - item.value24h) / item.value24h) * 100;
-};
-
 export const WorkspacePostTable = ({
   posts,
   metric,
@@ -57,14 +58,8 @@ export const WorkspacePostTable = ({
     [metric]
   );
 
-  // Primary value per post (7d, falling back to 24h for younger posts) and the
-  // list max for relative in-row bars.
   const max = useMemo(
-    () =>
-      Math.max(
-        1,
-        ...posts.map((post) => post.value7d || post.value24h || 0)
-      ),
+    () => Math.max(1, ...posts.map((post) => post.value || 0)),
     [posts]
   );
 
@@ -98,18 +93,16 @@ export const WorkspacePostTable = ({
                 {t('published', 'Published')}
               </th>
               <th className="font-medium px-[12px] py-[10px] min-w-[200px]">
-                {metricLabel} · 7d
+                {metricLabel}
               </th>
               <th className="font-medium px-[16px] py-[10px] text-right whitespace-nowrap">
-                {t('growth_24h_7d', 'Δ 24h→7d')}
+                {t('growth', 'Growth')}
               </th>
             </tr>
           </thead>
           <tbody>
             {posts.map((post) => {
-              const primary = post.value7d || post.value24h || 0;
-              const ratio = max > 0 ? primary / max : 0;
-              const growth = growthOf(post);
+              const ratio = max > 0 ? post.value / max : 0;
               return (
                 <tr
                   key={post.postId}
@@ -135,28 +128,34 @@ export const WorkspacePostTable = ({
                   </td>
                   <td className="px-[12px] py-[10px]">
                     <div className="flex items-center gap-[10px]">
-                      <div className="flex-1 min-w-[60px] max-w-[160px] h-[8px] rounded-full bg-newBgColorInner overflow-hidden">
+                      <div className="flex-1 min-w-[60px] max-w-[150px] h-[8px] rounded-full bg-newBgColorInner overflow-hidden">
                         <div
                           className="h-full rounded-full bg-[#612bd3]"
                           style={{ width: `${Math.round(ratio * 100)}%` }}
                         />
                       </div>
                       <span className="w-[72px] text-right tabular-nums font-semibold shrink-0">
-                        {formatValue(primary)}
+                        {formatValue(post.value)}
+                      </span>
+                      <span
+                        className="shrink-0 text-[10px] px-[6px] py-[1px] rounded-full bg-newBgColorInner text-newTableText/50"
+                        title={t('measured_at_age', 'Measured at this age')}
+                      >
+                        {bucketLabels[post.ageBucket] || post.ageBucket}
                       </span>
                     </div>
                   </td>
                   <td className="px-[16px] py-[10px] text-right tabular-nums whitespace-nowrap">
-                    {growth === null ? (
+                    {post.growth === null ? (
                       <span className="text-newTableText/40">—</span>
                     ) : (
                       <span
                         className={
-                          growth >= 0 ? 'text-[#32d583]' : 'text-red-400'
+                          post.growth >= 0 ? 'text-[#32d583]' : 'text-red-400'
                         }
                       >
-                        {growth >= 0 ? '+' : ''}
-                        {Math.round(growth)}%
+                        {post.growth >= 0 ? '+' : ''}
+                        {Math.round(post.growth)}%
                       </span>
                     )}
                   </td>

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Organization, User } from '@prisma/client';
+import type { AnalyticsAgeBucket, Organization, User } from '@prisma/client';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { internalAccessPolicy } from '@gitroom/nestjs-libraries/services/access-policy/internal-access-policy';
 import type { AnalyticsData } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
@@ -13,6 +13,7 @@ import type {
   WorkspaceTimeOfDayCell,
 } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.types';
 import {
+  AGE_BUCKET_ORDER,
   dateKey,
   hourKey,
   normalizeMetric,
@@ -239,104 +240,132 @@ export class WorkspaceAnalyticsService {
     return text.slice(0, 80) || 'Unknown post';
   }
 
-  // Per-post selected-metric values at the 24h and 7d age buckets. Within a
-  // workspace each post maps to a single channel, so no double-counting.
+  // Reduce each post's snapshots (for one metric) to the LATEST collected age
+  // bucket, so views populate from H1 (1h after publish) instead of waiting for
+  // H24. Also keeps the earliest bucket to express a growth trajectory.
+  private latestByPost(
+    postSnapshots: Awaited<
+      ReturnType<WorkspaceAnalyticsRepository['listPostSnapshots']>
+    >,
+    metric: WorkspaceAnalyticsQuery['metric']
+  ) {
+    type Entry = {
+      post: (typeof postSnapshots)[number]['post'];
+      channel: (typeof postSnapshots)[number]['channel'];
+      values: Map<AnalyticsAgeBucket, number>;
+    };
+    const byPost = new Map<string, Entry>();
+    for (const snapshot of postSnapshots) {
+      if (
+        snapshot.canonicalMetric !== metric ||
+        !snapshot.postId ||
+        !snapshot.ageBucket
+      ) {
+        continue;
+      }
+      const entry =
+        byPost.get(snapshot.postId) ||
+        ({
+          post: snapshot.post,
+          channel: snapshot.channel,
+          values: new Map<AnalyticsAgeBucket, number>(),
+        } as Entry);
+      entry.post = snapshot.post;
+      entry.channel = snapshot.channel;
+      entry.values.set(snapshot.ageBucket, snapshot.value);
+      byPost.set(snapshot.postId, entry);
+    }
+
+    const result = new Map<
+      string,
+      {
+        post: Entry['post'];
+        channel: Entry['channel'];
+        value: number;
+        ageBucket: AnalyticsAgeBucket;
+        firstValue: number;
+        firstBucket: AnalyticsAgeBucket;
+      }
+    >();
+    for (const [postId, entry] of byPost) {
+      const present = AGE_BUCKET_ORDER.filter((bucket) =>
+        entry.values.has(bucket)
+      );
+      if (!present.length) {
+        continue;
+      }
+      const latest = present[present.length - 1];
+      const first = present[0];
+      result.set(postId, {
+        post: entry.post,
+        channel: entry.channel,
+        value: entry.values.get(latest) ?? 0,
+        ageBucket: latest,
+        firstValue: entry.values.get(first) ?? 0,
+        firstBucket: first,
+      });
+    }
+    return result;
+  }
+
+  // Per-post value at its latest collected bucket + first→latest growth.
   private toPostPerformance(
     postSnapshots: Awaited<
       ReturnType<WorkspaceAnalyticsRepository['listPostSnapshots']>
     >,
     metric: WorkspaceAnalyticsQuery['metric']
   ): WorkspacePostPerformance[] {
-    const byPost = new Map<
-      string,
-      {
-        post: (typeof postSnapshots)[number]['post'];
-        channel: (typeof postSnapshots)[number]['channel'];
-        value24h: number;
-        value7d: number;
-      }
-    >();
-
-    for (const snapshot of postSnapshots) {
-      if (snapshot.canonicalMetric !== metric || !snapshot.postId) {
-        continue;
-      }
-      const entry = byPost.get(snapshot.postId) || {
-        post: snapshot.post,
-        channel: snapshot.channel,
-        value24h: 0,
-        value7d: 0,
-      };
-      entry.post = snapshot.post;
-      entry.channel = snapshot.channel;
-      if (snapshot.ageBucket === 'H24') {
-        entry.value24h = snapshot.value;
-      } else if (snapshot.ageBucket === 'D7') {
-        entry.value7d = snapshot.value;
-      }
-      byPost.set(snapshot.postId, entry);
-    }
-
-    return Array.from(byPost.entries())
-      .map(([postId, entry]) => ({
-        postId,
-        intro: this.postIntro(entry.post),
-        channelLabel: entry.channel
-          ? workspaceChannelLabel(
-              entry.channel.providerIdentifier,
-              entry.channel.displayName
-            )
-          : 'Unknown channel',
-        publishedAt: entry.post?.publishDate
-          ? new Date(entry.post.publishDate).toISOString()
-          : '',
-        hookType: entry.post?.hookType ?? null,
-        value24h: entry.value24h,
-        value7d: entry.value7d,
-      }))
-      .sort(
-        (left, right) =>
-          (right.value7d || right.value24h) - (left.value7d || left.value24h)
-      )
+    const latest = this.latestByPost(postSnapshots, metric);
+    return Array.from(latest.entries())
+      .map(([postId, entry]) => {
+        const growth =
+          entry.firstBucket !== entry.ageBucket && entry.firstValue > 0
+            ? ((entry.value - entry.firstValue) / entry.firstValue) * 100
+            : null;
+        return {
+          postId,
+          intro: this.postIntro(entry.post),
+          channelLabel: entry.channel
+            ? workspaceChannelLabel(
+                entry.channel.providerIdentifier,
+                entry.channel.displayName
+              )
+            : 'Unknown channel',
+          publishedAt: entry.post?.publishDate
+            ? new Date(entry.post.publishDate).toISOString()
+            : '',
+          hookType: entry.post?.hookType ?? null,
+          value: entry.value,
+          ageBucket: entry.ageBucket,
+          growth,
+        };
+      })
+      .sort((left, right) => right.value - left.value)
       .slice(0, 50);
   }
 
-  // Average selected-metric value (at 24h) per UTC weekday×hour of publish time.
+  // Average latest-bucket value per UTC weekday×hour of publish time.
   private toTimeOfDay(
     postSnapshots: Awaited<
       ReturnType<WorkspaceAnalyticsRepository['listPostSnapshots']>
     >,
     metric: WorkspaceAnalyticsQuery['metric']
   ): WorkspaceTimeOfDayCell[] {
-    const perPost = new Map<
-      string,
-      { weekday: number; hour: number; value: number }
-    >();
-    for (const snapshot of postSnapshots) {
-      if (
-        snapshot.canonicalMetric !== metric ||
-        snapshot.ageBucket !== 'H24' ||
-        !snapshot.postId ||
-        !snapshot.post?.publishDate
-      ) {
-        continue;
-      }
-      const published = new Date(snapshot.post.publishDate);
-      perPost.set(snapshot.postId, {
-        weekday: weekdayKey(published),
-        hour: hourKey(published),
-        value: snapshot.value,
-      });
-    }
-
+    const latest = this.latestByPost(postSnapshots, metric);
     const cells = new Map<
       string,
       { weekday: number; hour: number; sum: number; count: number }
     >();
-    for (const { weekday, hour, value } of perPost.values()) {
+    for (const entry of latest.values()) {
+      if (!entry.post?.publishDate) {
+        continue;
+      }
+      const published = new Date(entry.post.publishDate);
+      const weekday = weekdayKey(published);
+      const hour = hourKey(published);
       const key = `${weekday}-${hour}`;
       const cell = cells.get(key) || { weekday, hour, sum: 0, count: 0 };
-      cell.sum += value;
+      cell.sum += entry.value;
       cell.count += 1;
       cells.set(key, cell);
     }
@@ -349,32 +378,19 @@ export class WorkspaceAnalyticsService {
     }));
   }
 
-  // Average selected-metric value (at 24h) grouped by hook type.
+  // Average latest-bucket value grouped by hook type.
   private toHookTypePerformance(
     postSnapshots: Awaited<
       ReturnType<WorkspaceAnalyticsRepository['listPostSnapshots']>
     >,
     metric: WorkspaceAnalyticsQuery['metric']
   ): WorkspaceHookTypePerformance[] {
-    const perPost = new Map<string, { hookType: string; value: number }>();
-    for (const snapshot of postSnapshots) {
-      if (
-        snapshot.canonicalMetric !== metric ||
-        snapshot.ageBucket !== 'H24' ||
-        !snapshot.postId
-      ) {
-        continue;
-      }
-      perPost.set(snapshot.postId, {
-        hookType: snapshot.post?.hookType ?? 'OTHER',
-        value: snapshot.value,
-      });
-    }
-
+    const latest = this.latestByPost(postSnapshots, metric);
     const agg = new Map<string, { sum: number; count: number }>();
-    for (const { hookType, value } of perPost.values()) {
+    for (const entry of latest.values()) {
+      const hookType = entry.post?.hookType ?? 'OTHER';
       const current = agg.get(hookType) || { sum: 0, count: 0 };
-      current.sum += value;
+      current.sum += entry.value;
       current.count += 1;
       agg.set(hookType, current);
     }
@@ -509,7 +525,7 @@ export class WorkspaceAnalyticsService {
     const toItem = (item: WorkspacePostPerformance) => ({
       intro: item.intro,
       hookType: item.hookType,
-      value: item.value7d || item.value24h,
+      value: item.value,
     });
 
     const summary = await this._openaiService.summarizeHookInsights({
@@ -559,7 +575,7 @@ export class WorkspaceAnalyticsService {
       .map((item) => ({
         intro: item.intro,
         hookType: item.hookType,
-        value: item.value7d || item.value24h,
+        value: item.value,
       }));
 
     const suggestions = await this._openaiService.suggestHooks(topic, examples);
