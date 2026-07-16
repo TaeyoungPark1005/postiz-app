@@ -1,5 +1,5 @@
 import {
-  IsArray, IsDefined, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateNested
+  IsArray, IsBoolean, IsDefined, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateNested
 } from 'class-validator';
 import { MediaDto } from '@gitroom/nestjs-libraries/dtos/media/media.dto';
 import { Type } from 'class-transformer';
@@ -26,6 +26,13 @@ export class YoutubeSettingsDto {
   @IsIn(['yes', 'no'])
   @IsOptional()
   selfDeclaredMadeForKids: 'no' | 'yes';
+
+  // 변경된 콘텐츠/AI 생성 공개(YouTube "How this content was made"). 값이 있을
+  // 때만 provider 가 videos.insert 의 status.containsSyntheticMedia 로 넘긴다 —
+  // opt-in 이라 이 필드를 안 보내는 다른 워크스페이스/서비스 발행엔 영향 없음.
+  @IsBoolean()
+  @IsOptional()
+  containsSyntheticMedia?: boolean;
 
   @IsOptional()
   @ValidateNested()

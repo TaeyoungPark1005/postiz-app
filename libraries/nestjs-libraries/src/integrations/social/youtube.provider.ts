@@ -326,7 +326,12 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
               privacyStatus: settings.type,
               selfDeclaredMadeForKids:
                 settings.selfDeclaredMadeForKids === 'yes',
-            },
+              // opt-in: 값이 있을 때만 세팅. googleapis 137.x 의 Schema$VideoStatus
+              // 타입엔 아직 이 필드가 없어(2024-10-30 API 추가분) 캐스팅으로 우회.
+              ...(settings.containsSyntheticMedia
+                ? { containsSyntheticMedia: true }
+                : {}),
+            } as youtube_v3.Schema$VideoStatus,
           },
           media: {
             body: response.data,
