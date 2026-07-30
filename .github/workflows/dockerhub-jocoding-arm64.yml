@@ -1,0 +1,50 @@
+name: Build Jocoding Docker Image (arm64)
+
+# 라즈베리파이(arm64) 운영 서버용 이미지 빌드.
+# 파이는 이 태그로 컨테이너를 돌린다(docker-compose.override.yaml).
+#
+# 자동 배포는 일부러 붙이지 않는다:
+#   - 이미지가 6.45GB라 파이(4코어/7.6GB)에서 잦은 pull은 부담이 크다
+#   - 이미지 교체 시점은 사람이 직접 골라야 안전하다
+# 반영은 파이에서 수동으로:
+#   cd /home/openclaw/postiz-restore && docker compose pull postiz && docker compose up -d postiz
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Docker image tag
+        required: true
+        default: jocoding-arm64
+
+jobs:
+  dockerhub:
+    # arm64 네이티브 러너. QEMU 에뮬레이션으로 빌드하면 pnpm build가 몇 시간 걸린다.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.dev
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            NEXT_PUBLIC_VERSION=${{ github.sha }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/postiz-app:${{ inputs.tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/postiz-app:${{ github.sha }}-arm64
+          provenance: false
+          sbom: false
