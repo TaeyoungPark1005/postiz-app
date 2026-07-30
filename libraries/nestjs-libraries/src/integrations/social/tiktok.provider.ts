@@ -448,8 +448,12 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     isPhoto: boolean
   ): string {
     switch (method) {
+      // `/inbox/video/init/` silently ignores post_info, so the draft lands in
+      // the creator's inbox with an empty caption. `/content/init/` with
+      // post_mode MEDIA_UPLOAD accepts title/description and still requires no
+      // app audit, so use it for videos too.
       case 'UPLOAD':
-        return isPhoto ? '/content/init/' : '/inbox/video/init/';
+        return '/content/init/';
       case 'DIRECT_POST':
       default:
         return isPhoto ? '/content/init/' : '/video/init/';
@@ -495,13 +499,18 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       };
     }
 
+    // UPLOAD (draft) goes through `/content/init/` with post_mode
+    // MEDIA_UPLOAD, which caps title at 90 chars and carries the full caption
+    // in description. Videos previously used `/inbox/video/init/`, which drops
+    // post_info entirely and left the draft caption empty.
     return {
       post_info: {
-        ...(isPhoto && firstPost.settings.title
-          ? { title: firstPost.settings.title }
+        ...(firstPost.settings.title
+          ? { title: firstPost.settings.title.slice(0, 90) }
+          : firstPost.message
+          ? { title: firstPost.message.split('\n')[0].slice(0, 90) }
           : {}),
-        ...(!isPhoto && firstPost.message ? { title: firstPost.message } : {}),
-        ...(isPhoto ? { description: firstPost.message } : {}),
+        ...(firstPost.message ? { description: firstPost.message } : {}),
       },
     };
   }
@@ -524,7 +533,16 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       };
     }
 
+    // Videos posted as drafts now go through `/content/init/`, which requires
+    // the post_mode/media_type envelope (same as photos). DIRECT_POST keeps
+    // using `/video/init/`, which takes source_info alone.
+    const isDraft =
+      firstPost?.settings?.content_posting_method === 'UPLOAD';
+
     return {
+      ...(isDraft
+        ? { post_mode: 'MEDIA_UPLOAD', media_type: 'VIDEO' }
+        : {}),
       source_info: {
         source: 'PULL_FROM_URL',
         video_url: firstPost?.media?.[0]?.path!,
