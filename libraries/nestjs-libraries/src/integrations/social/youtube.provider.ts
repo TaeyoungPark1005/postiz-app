@@ -321,6 +321,13 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
               ...(settings?.tags?.length
                 ? { tags: settings.tags.map((p) => p.label) }
                 : {}),
+              // opt-in: 값이 있을 때만 보낸다. 미지정 시 YouTube 기본값을 따른다.
+              ...(settings?.categoryId
+                ? { categoryId: settings.categoryId }
+                : {}),
+              ...(settings?.defaultLanguage
+                ? { defaultLanguage: settings.defaultLanguage }
+                : {}),
             },
             status: {
               privacyStatus: settings.type,
@@ -355,6 +362,33 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
           },
         })
       );
+    }
+
+    // 재생목록 추가는 부가 동작이라 실패해도 업로드 결과를 되돌리지 않는다.
+    // (영상은 이미 게시된 상태 — 여기서 throw 하면 재시도 시 중복 업로드가 된다)
+    if (settings?.playlistId) {
+      try {
+        await this.runInConcurrent(async () =>
+          youtubeClient.playlistItems.insert({
+            part: ['snippet'],
+            requestBody: {
+              snippet: {
+                playlistId: settings.playlistId,
+                resourceId: {
+                  kind: 'youtube#video',
+                  videoId: all?.data?.id!,
+                },
+              },
+            },
+          })
+        );
+      } catch (err) {
+        console.error(
+          'YouTube: video uploaded but could not be added to playlist',
+          settings.playlistId,
+          err
+        );
+      }
     }
 
     return [

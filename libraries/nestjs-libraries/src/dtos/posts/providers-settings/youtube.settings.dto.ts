@@ -39,6 +39,21 @@ export class YoutubeSettingsDto {
   @Type(() => MediaDto)
   thumbnail?: MediaDto;
 
+  // videos.insert 의 snippet.categoryId. YouTube 카테고리 숫자 ID 문자열.
+  @IsString()
+  @IsOptional()
+  categoryId?: string;
+
+  // snippet.defaultLanguage — 제목/설명의 언어(BCP-47).
+  @IsString()
+  @IsOptional()
+  defaultLanguage?: string;
+
+  // 업로드 후 이 재생목록에 자동 추가한다(playlistItems.insert).
+  @IsString()
+  @IsOptional()
+  playlistId?: string;
+
   @IsArray()
   @IsOptional()
   @ValidateNested()

@@ -37,6 +37,37 @@ const madeForKids = [
     value: 'yes',
   },
 ];
+
+// YouTube Data API 의 videoCategory ID. 업로드에 사용 가능한 것만 추렸다.
+// 지역마다 사용 가능 목록이 달라 값이 없으면 아예 보내지 않는다.
+const categories = [
+  { label: 'Film & Animation', value: '1' },
+  { label: 'Autos & Vehicles', value: '2' },
+  { label: 'Music', value: '10' },
+  { label: 'Pets & Animals', value: '15' },
+  { label: 'Sports', value: '17' },
+  { label: 'Travel & Events', value: '19' },
+  { label: 'Gaming', value: '20' },
+  { label: 'People & Blogs', value: '22' },
+  { label: 'Comedy', value: '23' },
+  { label: 'Entertainment', value: '24' },
+  { label: 'News & Politics', value: '25' },
+  { label: 'Howto & Style', value: '26' },
+  { label: 'Education', value: '27' },
+  { label: 'Science & Technology', value: '28' },
+  { label: 'Nonprofits & Activism', value: '29' },
+];
+
+const languages = [
+  { label: 'Korean', value: 'ko' },
+  { label: 'English', value: 'en' },
+  { label: 'Japanese', value: 'ja' },
+  { label: 'Chinese (Simplified)', value: 'zh-Hans' },
+  { label: 'Spanish', value: 'es' },
+  { label: 'French', value: 'fr' },
+  { label: 'German', value: 'de' },
+  { label: 'Portuguese', value: 'pt' },
+];
 const YoutubeSettings: FC = () => {
   const { register, control } = useSettings();
   return (
@@ -66,6 +97,27 @@ const YoutubeSettings: FC = () => {
           </option>
         ))}
       </Select>
+      <Select label="Category" {...register('categoryId')}>
+        <option value="">Default</option>
+        {categories.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </Select>
+      <Select label="Language" {...register('defaultLanguage')}>
+        <option value="">Default</option>
+        {languages.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </Select>
+      <Input
+        label="Playlist ID"
+        placeholder="Add the video to this playlist after upload (optional)"
+        {...register('playlistId')}
+      />
       <MediumTags label="Tags" {...register('tags')} />
       <div className="mt-[20px]">
         <MediaComponent
