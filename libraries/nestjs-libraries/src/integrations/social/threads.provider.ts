@@ -13,6 +13,7 @@ import { capitalize, chunk } from 'lodash';
 import { Plug } from '@gitroom/helpers/decorators/plug.decorator';
 import { Integration } from '@prisma/client';
 import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
+import { ThreadsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/threads.dto';
 
 export class ThreadsProvider extends SocialAbstract implements SocialProvider {
   identifier = 'threads';
@@ -186,7 +187,8 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
     media: { path: string },
     message: string,
     isCarouselItem = false,
-    replyToId?: string
+    replyToId?: string,
+    settings?: ThreadsDto
   ): Promise<string> {
     const mediaType =
       media.path.indexOf('.mp4') > -1 ? 'video_url' : 'image_url';
@@ -195,6 +197,8 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
       ...(mediaType === 'image_url' ? { image_url: media.path } : {}),
       ...(isCarouselItem ? { is_carousel_item: 'true' } : {}),
       ...(replyToId ? { reply_to_id: replyToId } : {}),
+      // 캐러셀 자식 컨테이너는 부모가 정책을 갖기 때문에 옵션을 붙이지 않는다.
+      ...(isCarouselItem ? {} : this.buildCommonOptions(settings)),
       media_type: mediaType === 'video_url' ? 'VIDEO' : 'IMAGE',
       text: message,
       access_token: accessToken,
@@ -217,7 +221,8 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
     accessToken: string,
     media: { path: string }[],
     message: string,
-    replyToId?: string
+    replyToId?: string,
+    settings?: ThreadsDto
   ): Promise<string> {
     // Create each media item
     const mediaIds = [];
@@ -243,6 +248,7 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
       media_type: 'CAROUSEL',
       children: mediaIds.join(','),
       ...(replyToId ? { reply_to_id: replyToId } : {}),
+      ...this.buildCommonOptions(settings),
       access_token: accessToken,
     });
 
@@ -263,7 +269,8 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
     accessToken: string,
     message: string,
     replyToId?: string,
-    quoteId?: string
+    quoteId?: string,
+    settings?: ThreadsDto
   ): Promise<string> {
     const form = new FormData();
     form.append('media_type', 'TEXT');
@@ -276,6 +283,17 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
 
     if (quoteId) {
       form.append('quote_post_id', quoteId);
+    }
+
+    for (const [key, value] of Object.entries(
+      this.buildCommonOptions(settings)
+    )) {
+      form.append(key, value);
+    }
+
+    // 링크 미리보기는 텍스트 전용 포스트에서만 지원된다.
+    if (settings?.link_attachment) {
+      form.append('link_attachment', settings.link_attachment);
     }
 
     const { id: contentId, ...all } = await (
@@ -313,13 +331,29 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
     return { threadId, permalink };
   }
 
+  // reply_control / topic_tag 는 모든 미디어 타입의 컨테이너에서 받는다.
+  // link_attachment 는 텍스트 전용 포스트에만 유효해 createTextContent 에서만 붙인다.
+  private buildCommonOptions(
+    settings?: ThreadsDto
+  ): Record<string, string> {
+    return {
+      ...(settings?.reply_control
+        ? { reply_control: settings.reply_control }
+        : {}),
+      ...(settings?.topic_tag ? { topic_tag: settings.topic_tag } : {}),
+    };
+  }
+
   private async createThreadContent(
     userId: string,
     accessToken: string,
-    postDetails: PostDetails,
+    postDetails: PostDetails<ThreadsDto>,
     replyToId?: string,
     quoteId?: string
   ): Promise<string> {
+    // 답글에는 원 포스트의 답글 정책/토픽 태그를 물려주지 않는다.
+    const settings = replyToId ? undefined : postDetails.settings;
+
     // Handle content creation based on media type
     if (!postDetails.media || postDetails.media.length === 0) {
       // Text-only content
@@ -328,7 +362,8 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
         accessToken,
         postDetails.message,
         replyToId,
-        quoteId
+        quoteId,
+        settings
       );
     } else if (postDetails.media.length === 1) {
       // Single media content
@@ -338,7 +373,8 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
         postDetails.media[0],
         postDetails.message,
         false,
-        replyToId
+        replyToId,
+        settings
       );
     } else {
       // Carousel content
@@ -347,7 +383,8 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
         accessToken,
         postDetails.media,
         postDetails.message,
-        replyToId
+        replyToId,
+        settings
       );
     }
   }
@@ -355,10 +392,7 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
   async post(
     userId: string,
     accessToken: string,
-    postDetails: PostDetails<{
-      active_thread_finisher: boolean;
-      thread_finisher: string;
-    }>[]
+    postDetails: PostDetails<ThreadsDto>[]
   ): Promise<PostResponse[]> {
     if (!postDetails.length) {
       return [];
@@ -396,10 +430,7 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
     postId: string,
     lastCommentId: string | undefined,
     accessToken: string,
-    postDetails: PostDetails<{
-      active_thread_finisher: boolean;
-      thread_finisher: string;
-    }>[],
+    postDetails: PostDetails<ThreadsDto>[],
     integration: Integration
   ): Promise<PostResponse[]> {
     if (!postDetails.length) {
