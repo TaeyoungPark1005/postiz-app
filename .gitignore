@@ -58,3 +58,12 @@ Thumbs.db
 .secrets/
 libraries/plugins/src/plugins.ts
 i18n.cache
+
+# local-only operational/handoff notes (contains infra details, never push)
+MEMORY.md
+
+# local-only server scripts (contain host paths and usernames, never push)
+ops/
+
+# scratch output from one-off asset/render jobs
+output/
