@@ -7,9 +7,12 @@ import {
 import { FC } from 'react';
 import { Select } from '@gitroom/react/form/select';
 import { Checkbox } from '@gitroom/react/form/checkbox';
+import { Input } from '@gitroom/react/form/input';
 import { useSettings } from '@gitroom/frontend/components/launches/helpers/use.values';
 import { InstagramDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/instagram.dto';
 import { InstagramCollaboratorsTags } from '@gitroom/frontend/components/new-launch/providers/instagram/instagram.tags';
+import { InstagramUserTags } from '@gitroom/frontend/components/new-launch/providers/instagram/instagram.user.tags';
+import { MediaComponent } from '@gitroom/frontend/components/media/media.component';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { InstagramPreview } from '@gitroom/frontend/components/new-launch/providers/instagram/instagram.preview';
 const postType = [
@@ -65,6 +68,36 @@ const InstagramCollaborators: FC<{
         />
       )}
 
+      {postCurrentType !== 'story' && (
+        <>
+          <InstagramUserTags
+            label="Tag people (max 20) - usernames without @"
+            {...register('user_tags', {
+              value: [],
+            })}
+          />
+
+          <Input
+            label="Location ID"
+            placeholder={t(
+              'instagram_location_id_placeholder',
+              'Facebook Page ID of the location (optional)'
+            )}
+            {...register('location_id')}
+          />
+
+          <Input
+            label="Alt text"
+            placeholder={t(
+              'instagram_alt_text_placeholder',
+              'Accessibility description - images only (optional)'
+            )}
+            maxLength={1000}
+            {...register('alt_text')}
+          />
+        </>
+      )}
+
       {postCurrentType === 'post' && (
         <div className="mt-[18px] flex flex-col gap-[18px]">
           <Checkbox
@@ -88,6 +121,15 @@ const InstagramCollaborators: FC<{
               ))}
             </Select>
           )}
+
+          <MediaComponent
+            type="image"
+            width={1080}
+            height={1920}
+            label="Reel cover"
+            description="Custom cover for a single-video Reel (optional, 9:16)"
+            {...register('cover')}
+          />
         </div>
       )}
     </>

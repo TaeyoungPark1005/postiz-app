@@ -570,9 +570,53 @@ export class InstagramProvider
               )}`
             : ``;
 
+        // 릴스 커버 이미지. 단일 영상(REELS) 일 때만 유효하며, Instagram 이
+        // cover_url 을 thumb_offset 보다 우선 적용한다. 스토리/캐러셀 제외.
+        const isSingleReel =
+          m.path.indexOf('.mp4') > -1 &&
+          firstPost?.media?.length === 1 &&
+          !isStory;
+        const coverUrl =
+          isSingleReel && firstPost?.settings?.cover?.path
+            ? `&cover_url=${encodeURIComponent(
+                firstPost.settings.cover.path
+              )}`
+            : ``;
+
+        // 캐러셀은 부모 컨테이너가 태그를 갖는다(아래 CAROUSEL 분기 참고).
+        // 자식에 중복으로 붙이면 Instagram 이 거부하므로 여기선 제외한다.
+        const isCarouselChild = (firstPost?.media?.length || 0) > 1 && !isStory;
+
+        // 사람 태그. 스토리에는 적용되지 않는다. 영상은 x/y 좌표를 받지 않고
+        // username 만 넘긴다(이미지는 좌표가 선택값이라 생략해도 동작).
+        const userTags =
+          firstPost?.settings?.user_tags?.length && !isStory && !isCarouselChild
+            ? `&user_tags=${encodeURIComponent(
+                JSON.stringify(
+                  firstPost.settings.user_tags.map((p) => ({
+                    username: p.label.replace(/^@/, ''),
+                  }))
+                )
+              )}`
+            : ``;
+
+        // 위치 태그. 스토리 제외.
+        const locationId =
+          firstPost?.settings?.location_id && !isStory && !isCarouselChild
+            ? `&location_id=${encodeURIComponent(
+                firstPost.settings.location_id
+              )}`
+            : ``;
+
+        // 대체 텍스트. 이미지에만 적용된다.
+        const altText =
+          firstPost?.settings?.alt_text && m.path.indexOf('.mp4') === -1
+            ? `&alt_text=${encodeURIComponent(firstPost.settings.alt_text)}`
+            : ``;
+
         const { id: photoId } = await (
           await this.fetch(
-            `https://${type}/v20.0/${id}/media?${mediaType}${isCarousel}${collaborators}${trialParams}&access_token=${accessToken}${caption}`,
+            `https://${type}/v20.0/${id}/media?${mediaType}${isCarousel}${collaborators}${trialParams}${coverUrl}${userTags}${locationId}${altText}&access_token=${accessToken}${caption}`,
             {
               method: 'POST',
             }
@@ -656,13 +700,29 @@ export class InstagramProvider
         },
       ];
     } else {
+      // 캐러셀은 부모 컨테이너에서 위치/사람 태그를 받는다(자식은 무시됨).
+      // collaborators 는 기존 동작대로 자식에서 이미 붙으므로 여기선 다루지 않는다.
+      const carouselUserTags = firstPost?.settings?.user_tags?.length
+        ? `&user_tags=${encodeURIComponent(
+            JSON.stringify(
+              firstPost.settings.user_tags.map((p) => ({
+                username: p.label.replace(/^@/, ''),
+              }))
+            )
+          )}`
+        : ``;
+
+      const carouselLocationId = firstPost?.settings?.location_id
+        ? `&location_id=${encodeURIComponent(firstPost.settings.location_id)}`
+        : ``;
+
       const { id: containerId, ...all3 } = await (
         await this.fetch(
           `https://${type}/v20.0/${id}/media?caption=${encodeURIComponent(
             firstPost?.message
           )}&media_type=CAROUSEL&children=${encodeURIComponent(
             medias.join(',')
-          )}&access_token=${accessToken}`,
+          )}${carouselUserTags}${carouselLocationId}&access_token=${accessToken}`,
           {
             method: 'POST',
           }
