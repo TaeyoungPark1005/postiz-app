@@ -12,6 +12,7 @@ import { MediumTags } from '@gitroom/frontend/components/new-launch/providers/me
 import { MediaComponent } from '@gitroom/frontend/components/media/media.component';
 import { Select } from '@gitroom/react/form/select';
 import { YoutubePreview } from '@gitroom/frontend/components/new-launch/providers/youtube/youtube.preview';
+import { YoutubeCaptionFields } from '@gitroom/frontend/components/new-launch/providers/youtube/youtube.caption.fields';
 const type = [
   {
     label: 'Public',
@@ -129,6 +130,7 @@ const YoutubeSettings: FC = () => {
           {...register('thumbnail')}
         />
       </div>
+      <YoutubeCaptionFields />
     </div>
   );
 };

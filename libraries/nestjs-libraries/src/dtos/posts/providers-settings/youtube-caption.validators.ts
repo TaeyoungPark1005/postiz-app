@@ -3,18 +3,9 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { normalizeBcp47Language } from '@gitroom/helpers/utils/bcp47';
 
-export const normalizeBcp47Language = (value: unknown): string | null => {
-  if (typeof value !== 'string' || !value.trim()) {
-    return null;
-  }
-
-  try {
-    return Intl.getCanonicalLocales(value.trim())[0] || null;
-  } catch {
-    return null;
-  }
-};
+export { normalizeBcp47Language };
 
 @ValidatorConstraint({ name: 'isBcp47Language', async: false })
 export class IsBcp47LanguageConstraint

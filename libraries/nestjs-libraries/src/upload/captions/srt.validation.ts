@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
+import { MAX_SRT_FILE_SIZE } from '@gitroom/helpers/utils/youtube.caption.constants';
 
-export const MAX_SRT_FILE_SIZE = 5 * 1024 * 1024;
+export { MAX_SRT_FILE_SIZE };
 
 const ACCEPTED_SRT_MIME_TYPES = new Set([
   'application/x-subrip',

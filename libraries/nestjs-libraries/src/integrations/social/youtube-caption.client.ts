@@ -1,5 +1,5 @@
 import { Readable } from 'stream';
-import { normalizeBcp47Language } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/youtube-caption.validators';
+import { normalizeBcp47Language } from '@gitroom/helpers/utils/bcp47';
 
 type CaptionListItem = {
   id?: string | null;
