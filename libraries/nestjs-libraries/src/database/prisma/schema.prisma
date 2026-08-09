@@ -438,6 +438,7 @@ model Post {
   tags                       TagsPosts[]
   workspaceAttributions      PostWorkspaceAttribution[]
   analyticsSnapshots         AnalyticsMetricSnapshot[]
+  youtubeCaptionTracks       YoutubeCaptionTrack[]
 
   @@index([group])
   @@index([deletedAt])
@@ -453,6 +454,29 @@ model Post {
   @@index([updatedAt])
   @@index([releaseURL])
   @@index([integrationId])
+}
+
+model YoutubeCaptionTrack {
+  id               String               @id @default(cuid())
+  postId           String
+  language         String
+  name             String?
+  filePath         String
+  originalName     String
+  fileSize         Int
+  mimeType         String
+  status           YoutubeCaptionStatus @default(PENDING)
+  attemptCount     Int                  @default(0)
+  lastError        String?
+  retryGeneration  Int                  @default(0)
+  youtubeCaptionId String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  post             Post                 @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, language])
+  @@index([postId])
+  @@index([status])
 }
 
 enum WorkspaceRole {
@@ -1069,6 +1093,13 @@ enum State {
   PUBLISHED
   ERROR
   DRAFT
+}
+
+enum YoutubeCaptionStatus {
+  PENDING
+  UPLOADING
+  UPLOADED
+  FAILED
 }
 
 enum SubscriptionTier {

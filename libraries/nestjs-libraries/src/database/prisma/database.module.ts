@@ -43,6 +43,8 @@ import { AnnouncementsService } from '@gitroom/nestjs-libraries/database/prisma/
 import { WorkspaceAnalyticsRepository } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.repository';
 import { WorkspaceAnalyticsService } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/workspace-analytics.service';
 import { PostAnalyticsService } from '@gitroom/nestjs-libraries/database/prisma/workspace-analytics/post-analytics.service';
+import { YoutubeCaptionRepository } from '@gitroom/nestjs-libraries/database/prisma/youtube-captions/youtube-caption.repository';
+import { YoutubeCaptionService } from '@gitroom/nestjs-libraries/database/prisma/youtube-captions/youtube-caption.service';
 
 @Global()
 @Module({
@@ -95,6 +97,8 @@ import { PostAnalyticsService } from '@gitroom/nestjs-libraries/database/prisma/
     WorkspaceAnalyticsRepository,
     WorkspaceAnalyticsService,
     PostAnalyticsService,
+    YoutubeCaptionRepository,
+    YoutubeCaptionService,
   ],
   get exports() {
     return this.providers;
