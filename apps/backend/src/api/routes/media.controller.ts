@@ -27,6 +27,7 @@ import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 import { SaveMediaInformationDto } from '@gitroom/nestjs-libraries/dtos/media/save.media.information.dto';
 import { VideoDto } from '@gitroom/nestjs-libraries/dtos/videos/video.dto';
 import { VideoFunctionDto } from '@gitroom/nestjs-libraries/dtos/videos/video.function.dto';
+import { CaptionUploadService } from '@gitroom/nestjs-libraries/upload/captions/caption-upload.service';
 
 @ApiTags('Media')
 @Controller('/media')
@@ -34,7 +35,8 @@ export class MediaController {
   private storage = UploadFactory.createStorage();
   constructor(
     private _mediaService: MediaService,
-    private _subscriptionService: SubscriptionService
+    private _subscriptionService: SubscriptionService,
+    private _captionUploadService: CaptionUploadService
   ) {}
 
   @Delete('/:id')
@@ -124,6 +126,12 @@ export class MediaController {
       originalName,
       workspaceId
     );
+  }
+
+  @Post('/upload-caption')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadCaption(@UploadedFile('file') file: Express.Multer.File) {
+    return this._captionUploadService.upload(file);
   }
 
   @Post('/save-media')

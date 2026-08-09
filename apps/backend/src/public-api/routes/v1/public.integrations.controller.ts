@@ -40,6 +40,7 @@ import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integration
 import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
+import { CaptionUploadService } from '@gitroom/nestjs-libraries/upload/captions/caption-upload.service';
 
 @ApiTags('Public API')
 @Controller('/public/v1')
@@ -52,7 +53,8 @@ export class PublicIntegrationsController {
     private _mediaService: MediaService,
     private _notificationService: NotificationService,
     private _integrationManager: IntegrationManager,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _refreshIntegrationService: RefreshIntegrationService,
+    private _captionUploadService: CaptionUploadService
   ) {}
 
   @Post('/upload')
@@ -72,6 +74,13 @@ export class PublicIntegrationsController {
       getFile.originalname,
       getFile.path
     );
+  }
+
+  @Post('/upload-caption')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadCaption(@UploadedFile('file') file: Express.Multer.File) {
+    Sentry.metrics.count('public_api-request', 1);
+    return this._captionUploadService.upload(file);
   }
 
   @Post('/upload-from-url')
