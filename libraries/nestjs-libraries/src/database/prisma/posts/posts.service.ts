@@ -797,7 +797,8 @@ export class PostsService {
         await this._captionService.syncPending(
           posts[0].id,
           orgId,
-          captions
+          captions,
+          body.type !== 'update'
         );
       }
 

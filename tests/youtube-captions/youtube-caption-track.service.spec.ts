@@ -99,6 +99,26 @@ describe('YoutubeCaptionService', () => {
     expect(repository.upsertPending).not.toHaveBeenCalled();
   });
 
+  it('resets an uploaded track when the post will publish a new video', async () => {
+    const { repository, service } = setup();
+    repository.listForPost.mockResolvedValue([
+      storedTrack({ status: 'UPLOADED', youtubeCaptionId: 'caption-123' }),
+    ]);
+
+    await service.syncPending(
+      'post-1',
+      'org-1',
+      [desiredCaption()] as any,
+      true
+    );
+
+    expect(repository.upsertPending).toHaveBeenCalledWith(
+      'post-1',
+      'org-1',
+      desiredCaption()
+    );
+  });
+
   it('resets a track to pending when its file changes', async () => {
     const { repository, service } = setup();
     repository.listForPost.mockResolvedValue([

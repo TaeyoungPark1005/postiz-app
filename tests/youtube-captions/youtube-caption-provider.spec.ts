@@ -1,5 +1,7 @@
+import 'reflect-metadata';
 import { Readable } from 'stream';
 import { upsertYoutubeCaption } from '@gitroom/nestjs-libraries/integrations/social/youtube-caption.client';
+import { YoutubeProvider } from '@gitroom/nestjs-libraries/integrations/social/youtube.provider';
 
 const setup = (items: unknown[] = []) => {
   const list = jest.fn().mockResolvedValue({ data: { items } });
@@ -68,7 +70,6 @@ describe('upsertYoutubeCaption', () => {
 
     expect(update).toHaveBeenCalledWith({
       part: ['snippet'],
-      id: 'caption-existing',
       requestBody: {
         id: 'caption-existing',
         snippet: {
@@ -113,6 +114,28 @@ describe('upsertYoutubeCaption', () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the language tag as YouTube track name when the optional name is empty', async () => {
+    const { client, insert } = setup();
+
+    await upsertYoutubeCaption(client as any, {
+      videoId: 'video-123',
+      language: 'pt-BR',
+      body: Readable.from('caption'),
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestBody: {
+          snippet: {
+            videoId: 'video-123',
+            language: 'pt-BR',
+            name: 'pt-BR',
+          },
+        },
+      })
+    );
+  });
+
   it('fails when YouTube does not return a caption ID', async () => {
     const { client, insert } = setup();
     insert.mockResolvedValue({ data: {} });
@@ -124,5 +147,19 @@ describe('upsertYoutubeCaption', () => {
         body: Readable.from('caption'),
       })
     ).rejects.toThrow('YouTube did not return a caption ID');
+  });
+});
+
+describe('YoutubeProvider caption authorization errors', () => {
+  it.each([
+    'insufficientPermissions',
+    'Request had insufficient authentication scopes',
+    'PERMISSION_DENIED: youtube captions scope missing',
+  ])('turns %s into reconnect guidance', (body) => {
+    expect(new YoutubeProvider().handleErrors(body)).toEqual({
+      type: 'refresh-token',
+      value:
+        'YouTube caption access is missing. Reconnect your YouTube integration and try again.',
+    });
   });
 });

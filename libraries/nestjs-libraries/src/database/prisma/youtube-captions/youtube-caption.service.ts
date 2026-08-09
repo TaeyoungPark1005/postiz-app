@@ -28,7 +28,8 @@ export class YoutubeCaptionService {
   async syncPending(
     postId: string,
     organizationId: string,
-    captions: YoutubeCaptionSettingsDto[]
+    captions: YoutubeCaptionSettingsDto[],
+    resetForNewVideo = false
   ) {
     const existing = await this.repository.listForPost(postId, organizationId);
     const languages = captions.map((caption) => caption.language);
@@ -46,8 +47,12 @@ export class YoutubeCaptionService {
         current.originalName === caption.file.originalName &&
         current.fileSize === caption.file.size &&
         current.mimeType === caption.file.mimeType;
+      const needsNewVideoUpload =
+        resetForNewVideo &&
+        current &&
+        ['UPLOADED', 'FAILED'].includes(current.status);
 
-      if (unchanged) {
+      if (unchanged && !needsNewVideoUpload) {
         synchronized.push(current);
         continue;
       }

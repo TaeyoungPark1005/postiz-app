@@ -1,5 +1,7 @@
 /** @jest-environment ./tests/youtube-captions/jsdom.environment.cjs */
 
+import 'reflect-metadata';
+
 const mockFetch = jest.fn();
 jest.mock('@gitroom/helpers/utils/custom.fetch', () => ({
   useFetch: () => mockFetch,
@@ -8,9 +10,11 @@ jest.mock('@gitroom/helpers/utils/custom.fetch', () => ({
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { classValidatorResolver } from '@hookform/resolvers/class-validator';
 import { SWRConfig } from 'swr';
 import { YoutubeCaptionFields } from '@gitroom/frontend/components/new-launch/providers/youtube/youtube.caption.fields';
 import { ExistingDataContextProvider } from '@gitroom/frontend/components/launches/helpers/use.existing.data';
+import { YoutubeSettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/youtube.settings.dto';
 
 const asset = {
   path: 'https://postiz.example/uploads/story.en.srt',
@@ -31,11 +35,21 @@ const response = (body: unknown, ok = true) =>
 const TestForm = ({
   initialCaptions = [],
   postId,
+  useDtoResolver = false,
 }: {
   initialCaptions?: unknown[];
   postId?: string;
+  useDtoResolver?: boolean;
 }) => {
-  const form = useForm({ defaultValues: { captions: initialCaptions } });
+  const form = useForm({
+    ...(useDtoResolver ? { resolver: classValidatorResolver(YoutubeSettingsDto) } : {}),
+    defaultValues: {
+      title: 'Example video',
+      type: 'private',
+      captions: initialCaptions,
+    },
+  });
+  const [validationResult, setValidationResult] = React.useState('');
   return (
     <SWRConfig
       value={{
@@ -54,6 +68,21 @@ const TestForm = ({
       >
         <FormProvider {...form}>
           <YoutubeCaptionFields />
+          {useDtoResolver && (
+            <>
+              <button
+                type="button"
+                onClick={async () =>
+                  setValidationResult(String(await form.trigger()))
+                }
+              >
+                Validate settings
+              </button>
+              <output aria-label="Settings validation result">
+                {validationResult}
+              </output>
+            </>
+          )}
         </FormProvider>
       </ExistingDataContextProvider>
     </SWRConfig>
@@ -133,6 +162,31 @@ describe('YoutubeCaptionFields', () => {
     ).toBeTruthy();
   });
 
+  it('identifies an invalid BCP-47 language in its track row', () => {
+    render(<TestForm initialCaptions={[caption('en_US')]} />);
+
+    expect(
+      screen.getByText('Use a valid BCP-47 language tag, such as en or pt-BR.')
+    ).toBeTruthy();
+  });
+
+  it('accepts a server-uploaded caption in the real browser DTO resolver', async () => {
+    render(
+      <TestForm
+        initialCaptions={[caption('en')]}
+        useDtoResolver
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Validate settings' }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Settings validation result').textContent).toBe(
+        'true'
+      )
+    );
+  });
+
   it('shows failed status and retries through the failed-only endpoint', async () => {
     mockFetch.mockImplementation((url: string, options?: RequestInit) => {
       if (url === '/posts/post-1/captions/retry' && options?.method === 'POST') {
@@ -163,5 +217,28 @@ describe('YoutubeCaptionFields', () => {
         method: 'POST',
       })
     );
+  });
+
+  it('shows an actionable error when retry dispatch fails', async () => {
+    mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (url === '/posts/post-1/captions/retry' && options?.method === 'POST') {
+        return response({ message: 'Caption retry could not be started' }, false);
+      }
+      return response([
+        {
+          id: 'track-en',
+          language: 'en',
+          status: 'FAILED',
+          lastError: 'Initial upload failed',
+        },
+      ]);
+    });
+    render(<TestForm initialCaptions={[caption('en')]} postId="post-1" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry failed' }));
+
+    expect(
+      await screen.findByText('Caption retry could not be started')
+    ).toBeTruthy();
   });
 });

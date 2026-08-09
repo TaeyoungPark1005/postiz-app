@@ -1,22 +1,8 @@
 import { Readable } from 'stream';
 import { normalizeBcp47Language } from '@gitroom/helpers/utils/bcp47';
+import type { youtube_v3 } from 'googleapis';
 
-type CaptionListItem = {
-  id?: string | null;
-  snippet?: {
-    videoId?: string | null;
-    language?: string | null;
-    name?: string | null;
-  } | null;
-};
-
-export type YoutubeCaptionClient = {
-  captions: {
-    list(input: unknown): Promise<{ data: { items?: CaptionListItem[] | null } }>;
-    insert(input: unknown): Promise<{ data: { id?: string | null } }>;
-    update(input: unknown): Promise<{ data: { id?: string | null } }>;
-  };
-};
+export type YoutubeCaptionClient = Pick<youtube_v3.Youtube, 'captions'>;
 
 export type YoutubeCaptionUpsertInput = {
   videoId: string;
@@ -28,7 +14,7 @@ export type YoutubeCaptionUpsertInput = {
 const captionSnippet = (input: YoutubeCaptionUpsertInput) => ({
   videoId: input.videoId,
   language: input.language,
-  ...(input.name ? { name: input.name } : {}),
+  name: input.name || input.language,
 });
 
 export const upsertYoutubeCaption = async (
@@ -49,7 +35,6 @@ export const upsertYoutubeCaption = async (
   const response = existing?.id
     ? await youtubeClient.captions.update({
         part: ['snippet'],
-        id: existing.id,
         requestBody: {
           id: existing.id,
           snippet: captionSnippet(input),

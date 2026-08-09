@@ -59,6 +59,7 @@ export const YoutubeCaptionFields = () => {
   const [uploading, setUploading] = useState<Set<string>>(new Set());
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState('');
 
   const loadStatuses = async (url: string) => {
     const request = await fetch(url);
@@ -159,6 +160,7 @@ export const YoutubeCaptionFields = () => {
   const retryFailed = async () => {
     if (!postId) return;
     setRetrying(true);
+    setRetryError('');
     try {
       const request = await fetch(`/posts/${postId}/captions/retry`, {
         method: 'POST',
@@ -168,6 +170,10 @@ export const YoutubeCaptionFields = () => {
         throw new Error(responseMessage(payload));
       }
       await mutate();
+    } catch (error) {
+      setRetryError(
+        error instanceof Error ? error.message : 'Caption retry failed'
+      );
     } finally {
       setRetrying(false);
     }
@@ -211,6 +217,8 @@ export const YoutubeCaptionFields = () => {
             ? 'UPLOADING'
             : persisted?.status || (value?.file ? 'PENDING' : undefined);
           const style = status ? statusStyle[status] : undefined;
+          const invalidLanguage =
+            !!value?.language && !normalizeBcp47Language(value.language);
 
           return (
             <div
@@ -257,6 +265,12 @@ export const YoutubeCaptionFields = () => {
                 </div>
               </div>
 
+              {invalidLanguage && (
+                <div className="mt-[8px] text-[12px] text-red-300" role="alert">
+                  Use a valid BCP-47 language tag, such as en or pt-BR.
+                </div>
+              )}
+
               <div className="mt-[10px] flex flex-wrap items-center gap-[10px]">
                 <label className="cursor-pointer rounded-[8px] border border-newTableBorder px-[12px] py-[8px] text-[12px] text-textColor hover:border-forth focus-within:ring-2 focus-within:ring-forth">
                   <span>{uploading.has(field.id) ? 'Uploading…' : 'Choose SRT'}</span>
@@ -294,7 +308,10 @@ export const YoutubeCaptionFields = () => {
       </div>
 
       {hasFailed && postId && (
-        <div className="mt-[12px] flex justify-end">
+        <div className="mt-[12px] flex items-center justify-between gap-[12px]">
+          <div className="text-[12px] text-red-300" role="alert">
+            {retryError}
+          </div>
           <Button
             className="rounded-[8px]"
             loading={retrying}

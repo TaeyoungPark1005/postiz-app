@@ -119,6 +119,19 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
       };
     }
 
+    if (
+      body.includes('insufficientPermissions') ||
+      body.includes('insufficient authentication scopes') ||
+      (body.includes('PERMISSION_DENIED') &&
+        body.toLowerCase().includes('scope'))
+    ) {
+      return {
+        type: 'refresh-token',
+        value:
+          'YouTube caption access is missing. Reconnect your YouTube integration and try again.',
+      };
+    }
+
     if (body.includes('Unauthorized')) {
       return {
         type: 'refresh-token',

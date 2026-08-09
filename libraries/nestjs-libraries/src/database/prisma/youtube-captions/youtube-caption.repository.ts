@@ -66,7 +66,7 @@ export class YoutubeCaptionRepository {
     return this.prisma.model.youtubeCaptionTrack.upsert({
       where: { postId_language: { postId, language: caption.language } },
       create: { postId, retryGeneration: 0, ...data },
-      update: data,
+      update: { ...data, retryGeneration: { increment: 1 } },
     });
   }
 

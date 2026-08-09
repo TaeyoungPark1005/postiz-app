@@ -68,6 +68,19 @@ export class IsTrustedCaptionPathConstraint
   implements ValidatorConstraintInterface
 {
   validate(value: unknown) {
+    if (typeof window !== 'undefined' && typeof value === 'string') {
+      try {
+        const candidate = new URL(value);
+        return (
+          ['http:', 'https:'].includes(candidate.protocol) &&
+          !candidate.username &&
+          !candidate.password &&
+          /\.srt$/i.test(candidate.pathname)
+        );
+      } catch {
+        return false;
+      }
+    }
     return isTrustedCaptionPath(value);
   }
 

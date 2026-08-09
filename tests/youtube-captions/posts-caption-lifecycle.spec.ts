@@ -65,7 +65,8 @@ describe('PostsService YouTube caption lifecycle', () => {
     expect(captionService.syncPending).toHaveBeenCalledWith(
       'post-1',
       'org-1',
-      captions
+      captions,
+      true
     );
     expect(callOrder).toEqual([
       'post-created',
