@@ -16,6 +16,9 @@ import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { TypedSearchAttributes } from '@temporalio/common';
 import { postId as postIdSearchParam } from '@gitroom/nestjs-libraries/temporal/temporal.search.attribute';
 import { postAnalyticsCollectionWorkflow } from '../post-analytics-collection.workflow';
+import type { YoutubeCaptionActivity } from '@gitroom/orchestrator/activities/youtube-caption.activity';
+import { youtubeCaptionWorkflow } from '../youtube-caption.workflow';
+import { completePostAndStartYoutubeCaptions } from '../youtube-caption.children';
 
 const proxyTaskQueue = (taskQueue: string) => {
   return proxyActivities<PostActivity>({
@@ -46,6 +49,11 @@ const {
 });
 
 const poke = defineSignal('poke');
+
+const { getPendingYoutubeCaptions } = proxyActivities<YoutubeCaptionActivity>({
+  startToCloseTimeout: '1 minute',
+  retry: { maximumAttempts: 3 },
+});
 
 const iterate = Array.from({ length: 5 });
 
@@ -166,11 +174,29 @@ export async function postWorkflowV101({
         }
 
         // mark post as successful
-        await updatePost(
-          postsList[i].id,
-          postsResults[i].postId,
-          postsResults[i].releaseURL
-        );
+        if (i === 0) {
+          await completePostAndStartYoutubeCaptions({
+            postId: postsList[i].id,
+            releaseId: postsResults[i].postId,
+            releaseURL: postsResults[i].releaseURL,
+            providerIdentifier: post.integration.providerIdentifier,
+            updatePost,
+            getPending: getPendingYoutubeCaptions,
+            startChild: (track, options) =>
+              startChild(youtubeCaptionWorkflow, {
+                args: [{ trackId: track.id }],
+                workflowId: options.workflowId,
+                taskQueue: options.taskQueue,
+                parentClosePolicy: options.parentClosePolicy,
+              }),
+          });
+        } else {
+          await updatePost(
+            postsList[i].id,
+            postsResults[i].postId,
+            postsResults[i].releaseURL
+          );
+        }
 
         if (i === 0) {
           // send notification on a sucessful post

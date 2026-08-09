@@ -2,12 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { TemporalService } from 'nestjs-temporal-core';
 import { YoutubeCaptionSettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/youtube.settings.dto';
 import { YoutubeCaptionRepository } from './youtube-caption.repository';
+import { youtubeCaptionWorkflowId } from '@gitroom/helpers/utils/youtube.caption.workflow';
 
-export const youtubeCaptionWorkflowId = (
-  postId: string,
-  language: string,
-  retryGeneration: number
-) => `youtube-caption:${postId}:${language}:${retryGeneration}`;
+export { youtubeCaptionWorkflowId };
 
 export const sanitizeYoutubeCaptionError = (error: unknown): string => {
   const raw = error instanceof Error ? error.message : String(error || '');

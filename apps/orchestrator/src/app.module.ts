@@ -7,6 +7,7 @@ import { EmailActivity } from '@gitroom/orchestrator/activities/email.activity';
 import { IntegrationsActivity } from '@gitroom/orchestrator/activities/integrations.activity';
 import { PostAnalyticsActivity } from '@gitroom/orchestrator/activities/post-analytics.activity';
 import { HealthController } from '@gitroom/orchestrator/health.controller';
+import { YoutubeCaptionActivity } from '@gitroom/orchestrator/activities/youtube-caption.activity';
 
 const activities = [
   PostActivity,
@@ -14,6 +15,7 @@ const activities = [
   EmailActivity,
   IntegrationsActivity,
   PostAnalyticsActivity,
+  YoutubeCaptionActivity,
 ];
 @Module({
   imports: [
