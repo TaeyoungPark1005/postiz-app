@@ -37,6 +37,7 @@ import { timer } from '@gitroom/helpers/utils/timer';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
+import { YoutubeCaptionService } from '@gitroom/nestjs-libraries/database/prisma/youtube-captions/youtube-caption.service';
 
 type PostWithConditionals = Post & {
   integration?: Integration;
@@ -54,7 +55,8 @@ export class PostsService {
     private _shortLinkService: ShortLinkService,
     private _openaiService: OpenaiService,
     private _temporalService: TemporalService,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _refreshIntegrationService: RefreshIntegrationService,
+    private _captionService: YoutubeCaptionService
   ) {}
 
   searchForMissingThreeHoursPosts() {
@@ -780,6 +782,17 @@ export class PostsService {
 
       if (!posts?.length) {
         return [] as any[];
+      }
+
+      if (
+        post.settings.__type.split('-')[0].toLowerCase() === 'youtube' &&
+        Array.isArray(post.settings.captions)
+      ) {
+        await this._captionService.syncPending(
+          posts[0].id,
+          orgId,
+          post.settings.captions
+        );
       }
 
       if (body.type !== 'update') {

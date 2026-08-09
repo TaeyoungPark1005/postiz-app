@@ -28,6 +28,7 @@ import {
   AuthorizationActions,
   Sections,
 } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
+import { YoutubeCaptionService } from '@gitroom/nestjs-libraries/database/prisma/youtube-captions/youtube-caption.service';
 
 @ApiTags('Posts')
 @Controller('/posts')
@@ -35,7 +36,8 @@ export class PostsController {
   constructor(
     private _postsService: PostsService,
     private _agentGraphService: AgentGraphService,
-    private _shortLinkService: ShortLinkService
+    private _shortLinkService: ShortLinkService,
+    private _youtubeCaptionService: YoutubeCaptionService
   ) {}
 
   @Get('/:id/statistics')
@@ -61,6 +63,22 @@ export class PostsController {
     @Body('releaseId') releaseId: string
   ) {
     return this._postsService.updateReleaseId(org.id, id, releaseId);
+  }
+
+  @Get('/:id/captions')
+  getYoutubeCaptions(
+    @GetOrgFromRequest() org: Organization,
+    @Param('id') id: string
+  ) {
+    return this._youtubeCaptionService.listForPost(id, org.id);
+  }
+
+  @Post('/:id/captions/retry')
+  retryYoutubeCaptions(
+    @GetOrgFromRequest() org: Organization,
+    @Param('id') id: string
+  ) {
+    return this._youtubeCaptionService.retryFailed(id, org.id);
   }
 
   @Post('/should-shortlink')
