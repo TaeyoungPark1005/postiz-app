@@ -38,6 +38,7 @@ import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 import { YoutubeCaptionService } from '@gitroom/nestjs-libraries/database/prisma/youtube-captions/youtube-caption.service';
+import { YoutubeCaptionSettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/youtube.settings.dto';
 
 type PostWithConditionals = Post & {
   integration?: Integration;
@@ -784,14 +785,19 @@ export class PostsService {
         return [] as any[];
       }
 
+      const captions = (
+        post.settings as typeof post.settings & {
+          captions?: YoutubeCaptionSettingsDto[];
+        }
+      ).captions;
       if (
         post.settings.__type.split('-')[0].toLowerCase() === 'youtube' &&
-        Array.isArray(post.settings.captions)
+        Array.isArray(captions)
       ) {
         await this._captionService.syncPending(
           posts[0].id,
           orgId,
-          post.settings.captions
+          captions
         );
       }
 

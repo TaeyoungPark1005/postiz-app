@@ -19,6 +19,8 @@ import dayjs from 'dayjs';
 import { GaxiosResponse } from 'gaxios/build/src/common';
 import Schema$Video = youtube_v3.Schema$Video;
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { upsertYoutubeCaption } from '@gitroom/nestjs-libraries/integrations/social/youtube-caption.client';
+import { isTrustedCaptionPath } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/youtube-caption.validators';
 
 const clientAndYoutube = () => {
   const client = new google.auth.OAuth2({
@@ -399,6 +401,43 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
         status: 'success',
       },
     ];
+  }
+
+  async uploadCaption(
+    accessToken: string,
+    input: {
+      videoId: string;
+      language: string;
+      name?: string;
+      path: string;
+    }
+  ): Promise<string> {
+    if (!isTrustedCaptionPath(input.path)) {
+      throw new BadBody(
+        this.identifier,
+        '{}',
+        {} as BodyInit,
+        'Caption path is not a Postiz-managed SRT upload'
+      );
+    }
+
+    const { client, youtube } = clientAndYoutube();
+    client.setCredentials({ access_token: accessToken });
+    const youtubeClient = youtube(client);
+    const caption = await axios({
+      url: input.path,
+      method: 'GET',
+      responseType: 'stream',
+    });
+
+    return this.runInConcurrent(() =>
+      upsertYoutubeCaption(youtubeClient, {
+        videoId: input.videoId,
+        language: input.language,
+        name: input.name,
+        body: caption.data,
+      })
+    );
   }
 
   async analytics(
