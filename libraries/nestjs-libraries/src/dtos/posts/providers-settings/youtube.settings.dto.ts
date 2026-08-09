@@ -1,8 +1,29 @@
 import {
-  IsArray, IsBoolean, IsDefined, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateNested
+  ArrayMaxSize,
+  ArrayUnique,
+  Equals,
+  IsArray,
+  IsBoolean,
+  IsDefined,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  Validate,
+  ValidateNested,
 } from 'class-validator';
 import { MediaDto } from '@gitroom/nestjs-libraries/dtos/media/media.dto';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBcp47LanguageConstraint,
+  IsTrustedCaptionPathConstraint,
+  normalizeBcp47Language,
+} from './youtube-caption.validators';
 
 export class YoutubeTagsSettings {
   @IsString()
@@ -10,6 +31,44 @@ export class YoutubeTagsSettings {
 
   @IsString()
   label: string;
+}
+
+export class YoutubeCaptionFileDto {
+  @IsString()
+  @IsDefined()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @Validate(IsTrustedCaptionPathConstraint)
+  path: string;
+
+  @IsString()
+  @IsDefined()
+  originalName: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(5 * 1024 * 1024)
+  size: number;
+
+  @Equals('application/x-subrip')
+  mimeType: 'application/x-subrip';
+}
+
+export class YoutubeCaptionSettingsDto {
+  @IsString()
+  @IsDefined()
+  @Transform(({ value }) => normalizeBcp47Language(value) ?? value)
+  @Validate(IsBcp47LanguageConstraint)
+  language: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(150)
+  name?: string;
+
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => YoutubeCaptionFileDto)
+  file: YoutubeCaptionFileDto;
 }
 
 export class YoutubeSettingsDto {
@@ -59,4 +118,14 @@ export class YoutubeSettingsDto {
   @ValidateNested()
   @Type(() => YoutubeTagsSettings)
   tags: YoutubeTagsSettings[];
+
+  @IsArray()
+  @IsOptional()
+  @ArrayMaxSize(20)
+  @ArrayUnique((track: YoutubeCaptionSettingsDto) =>
+    track?.language?.toLowerCase()
+  )
+  @ValidateNested({ each: true })
+  @Type(() => YoutubeCaptionSettingsDto)
+  captions?: YoutubeCaptionSettingsDto[];
 }
