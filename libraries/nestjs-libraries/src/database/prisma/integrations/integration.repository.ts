@@ -284,7 +284,7 @@ export class IntegrationRepository {
         profile: username,
         providerIdentifier: provider,
         token,
-        refreshToken,
+        ...(refreshToken ? { refreshToken } : {}),
         ...(expiresIn
           ? { tokenExpiration: new Date(Date.now() + expiresIn * 1000) }
           : {}),
