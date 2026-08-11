@@ -33,11 +33,9 @@ export async function refreshTokenWorkflow({
     const endDate = new Date(integration.tokenExpiration);
 
     const minMax = Math.max(0, endDate.getTime() - today.getTime());
-    if (!minMax) {
-      return false;
+    if (minMax) {
+      await sleep(minMax as number);
     }
-
-    await sleep(minMax as number);
 
     // while we were sleeping, the integration might have been deleted
     integration = await getIntegrationsById(integrationId, organizationId);
